@@ -4,6 +4,16 @@
 
 A desktop Markdown editor built with Electron, React, and TipTap. It uses Typora-like hybrid editing: the document stays formatted, and Markdown markers appear only on the block you are editing.
 
+## Screenshots
+
+![Editing view with file tree and centered reading column](docs/screenshots/editing.png)
+
+*Editing view with file tree and centered reading column*
+
+![Welcome screen when no file is open](docs/screenshots/welcome.png)
+
+*Welcome screen when no file is open*
+
 ## Features
 
 - **Hybrid editing** — markers show on the focused block, and formatting applies as you type

@@ -4,6 +4,16 @@
 
 基于 Electron、React 和 TipTap 的桌面 Markdown 编辑器。编辑方式接近 Typora：正文以排好版的样子呈现，只有正在编辑的段落会露出 Markdown 标记。
 
+## 截图
+
+![带文件树和居中阅读栏的编辑视图](docs/screenshots/editing.png)
+
+*带文件树和居中阅读栏的编辑视图*
+
+![未打开文件时的欢迎界面](docs/screenshots/welcome.png)
+
+*未打开文件时的欢迎界面*
+
 ## 功能
 
 - **混合编辑** — 焦点所在的块显示标记，格式随输入即时生效
