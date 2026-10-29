@@ -1,7 +1,7 @@
 /** @vitest-environment happy-dom */
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { fireEvent } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MarkdownEditorApi, MenuAction } from '../shared/ipc'
 import { RECENTS_STORAGE_KEY } from '../shared/recents'
@@ -1018,6 +1018,115 @@ describe('App file workflow', () => {
     })
     expect(latestEditorProps?.content).toBe('')
     expect(container.querySelector('[aria-label="关闭 未命名"]')).toBeTruthy()
+  })
+
+  it('reloadWorkspace re-lists workspace root without changing editor content', async () => {
+    vi.mocked(api.openFolder).mockResolvedValue({ ok: true, path: '/ws' })
+    vi.mocked(api.listDir).mockResolvedValue({
+      ok: true,
+      entries: [{ name: 'a.md', path: '/ws/a.md', kind: 'file' }]
+    })
+    vi.mocked(api.readFile).mockResolvedValue({ ok: true, content: '# On disk\n' })
+
+    await renderApp()
+    await act(async () => {
+      menuHandler?.({ action: 'openFolder' })
+      await Promise.resolve()
+    })
+
+    const fileBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => (b.textContent ?? '').includes('a.md') && b.classList.contains('file-tree-item')
+    ) as HTMLButtonElement
+    await act(async () => {
+      fileBtn.click()
+      await Promise.resolve()
+    })
+    await simulateEdit('# Edited in tab\n')
+    const contentBefore = latestEditorProps?.content
+    expect(contentBefore).toBe('# Edited in tab\n')
+
+    vi.mocked(api.listDir).mockClear()
+    vi.mocked(api.listDir).mockResolvedValue({
+      ok: true,
+      entries: [
+        { name: 'a.md', path: '/ws/a.md', kind: 'file' },
+        { name: 'new.md', path: '/ws/new.md', kind: 'file' }
+      ]
+    })
+
+    await act(async () => {
+      menuHandler?.({ action: 'reloadWorkspace' })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(api.listDir).toHaveBeenCalledWith('/ws')
+    expect(latestEditorProps?.content).toBe(contentBefore)
+    expect(container.textContent).toContain('new.md')
+  })
+
+  it('reloadWorkspace keeps expanded folders open and re-fetches children', async () => {
+    vi.mocked(api.openFolder).mockResolvedValue({ ok: true, path: '/ws' })
+    vi.mocked(api.listDir).mockImplementation(async (dirPath: string) => {
+      if (dirPath === '/ws') {
+        return {
+          ok: true as const,
+          entries: [{ name: 'sub', path: '/ws/sub', kind: 'directory' as const }]
+        }
+      }
+      if (dirPath === '/ws/sub') {
+        return {
+          ok: true as const,
+          entries: [{ name: 'inner.md', path: '/ws/sub/inner.md', kind: 'file' as const }]
+        }
+      }
+      return { ok: false as const, error: 'unexpected' }
+    })
+
+    await renderApp()
+    await act(async () => {
+      menuHandler?.({ action: 'openFolder' })
+      await Promise.resolve()
+    })
+
+    const expandSub = screen.getByRole('button', { name: '展开 sub' })
+    await act(async () => {
+      expandSub.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByText('inner.md')).toBeTruthy()
+
+    vi.mocked(api.listDir).mockImplementation(async (dirPath: string) => {
+      if (dirPath === '/ws') {
+        return {
+          ok: true as const,
+          entries: [{ name: 'sub', path: '/ws/sub', kind: 'directory' as const }]
+        }
+      }
+      if (dirPath === '/ws/sub') {
+        return {
+          ok: true as const,
+          entries: [
+            { name: 'inner.md', path: '/ws/sub/inner.md', kind: 'file' as const },
+            { name: 'added.md', path: '/ws/sub/added.md', kind: 'file' as const }
+          ]
+        }
+      }
+      return { ok: false as const, error: 'unexpected' }
+    })
+
+    await act(async () => {
+      menuHandler?.({ action: 'reloadWorkspace' })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByRole('button', { name: '折叠 sub' })).toBeTruthy()
+    expect(screen.getByText('added.md')).toBeTruthy()
+    expect(vi.mocked(api.listDir).mock.calls.filter((c) => c[0] === '/ws/sub').length).toBeGreaterThan(
+      1
+    )
   })
 
   it('renders a sidebar splitter with col-resize cursor', async () => {

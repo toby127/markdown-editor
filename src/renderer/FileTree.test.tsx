@@ -87,6 +87,51 @@ describe('FileTree', () => {
     })
   })
 
+  it('re-fetches children for expanded directories when refreshToken changes', async () => {
+    const loadChildren = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { name: 'first.md', path: '/ws/docs/first.md', kind: 'file' as const }
+      ])
+      .mockResolvedValueOnce([
+        { name: 'first.md', path: '/ws/docs/first.md', kind: 'file' as const },
+        { name: 'second.md', path: '/ws/docs/second.md', kind: 'file' as const }
+      ])
+    const { rerender } = render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={0}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(screen.getByText('first.md')).toBeTruthy()
+    })
+    expect(loadChildren).toHaveBeenCalledTimes(1)
+
+    rerender(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={1}
+      />
+    )
+    await waitFor(() => {
+      expect(screen.getByText('second.md')).toBeTruthy()
+    })
+    expect(loadChildren).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: '折叠 docs' })).toBeTruthy()
+  })
+
   it('does not open a file on right-click', () => {
     const onOpenFile = vi.fn()
     render(

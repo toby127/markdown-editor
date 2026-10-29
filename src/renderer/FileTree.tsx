@@ -1,4 +1,4 @@
-import { useCallback, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import type { DirEntry } from '../shared/fs-types'
 import { fileName } from '../shared/paths'
 import ContextMenu, { type ContextMenuItem } from './ContextMenu'
@@ -14,6 +14,7 @@ export type FileTreeProps = {
   onRenameEntry?: (path: string, newName: string) => void
   onDeleteEntry?: (path: string) => void
   selectedPath?: string | null
+  refreshToken?: number
 }
 
 type MenuKind = 'blank' | 'root' | 'directory' | 'file'
@@ -144,12 +145,36 @@ export default function FileTree({
   onCreateEntry,
   onRenameEntry,
   onDeleteEntry,
-  selectedPath = null
+  selectedPath = null,
+  refreshToken = 0
 }: FileTreeProps): JSX.Element {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [childrenMap, setChildrenMap] = useState<Record<string, DirEntry[]>>({})
   const [rootExpanded, setRootExpanded] = useState(true)
   const [menu, setMenu] = useState<MenuState>(null)
+  const expandedRef = useRef(expanded)
+  expandedRef.current = expanded
+
+  useEffect(() => {
+    if (refreshToken === 0) return
+    let cancelled = false
+    void (async () => {
+      const paths = Array.from(expandedRef.current)
+      if (paths.length === 0) return
+      const updates: Record<string, DirEntry[]> = {}
+      for (const dirPath of paths) {
+        if (cancelled) return
+        const kids = await loadChildren(dirPath)
+        updates[dirPath] = kids
+      }
+      if (!cancelled) {
+        setChildrenMap((prev) => ({ ...prev, ...updates }))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [refreshToken, loadChildren])
 
   const onToggleDir = useCallback(
     async (dirPath: string) => {
