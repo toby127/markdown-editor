@@ -80,6 +80,7 @@ export default function App(): JSX.Element {
   const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null)
   const [rootEntries, setRootEntries] = useState<DirEntry[]>([])
   const [treeEpoch, setTreeEpoch] = useState(0)
+  const [treeRefreshToken, setTreeRefreshToken] = useState(0)
   const [recents, setRecents] = useState<RecentEntry[]>(() =>
     parseRecentsJson(localStorage.getItem(RECENTS_STORAGE_KEY))
   )
@@ -156,20 +157,28 @@ export default function App(): JSX.Element {
     void window.api.setDirty(anyDirty(nextTabs))
   }, [])
 
-  const loadRootEntries = useCallback(async (root: string) => {
-    const result = await window.api.listDir(root)
-    if (!result.ok) {
-      window.alert(result.error)
-      setRootEntries([])
-      return
-    }
-    setRootEntries(result.entries)
-  }, [])
+  const loadRootEntries = useCallback(
+    async (root: string, options?: { preserveOnError?: boolean }): Promise<boolean> => {
+      const result = await window.api.listDir(root)
+      if (!result.ok) {
+        window.alert(result.error)
+        if (!options?.preserveOnError) {
+          setRootEntries([])
+        }
+        return false
+      }
+      setRootEntries(result.entries)
+      return true
+    },
+    []
+  )
 
   const refreshTree = useCallback(async () => {
     if (!workspaceRoot) return
-    await loadRootEntries(workspaceRoot)
-    setTreeEpoch((n) => n + 1)
+    const ok = await loadRootEntries(workspaceRoot, { preserveOnError: true })
+    if (ok) {
+      setTreeRefreshToken((n) => n + 1)
+    }
   }, [workspaceRoot, loadRootEntries])
 
   const handleChangeMarkdown = useCallback(
@@ -325,11 +334,11 @@ export default function App(): JSX.Element {
     [openPaths]
   )
 
-  const loadChildren = useCallback(async (dirPath: string): Promise<DirEntry[]> => {
+  const loadChildren = useCallback(async (dirPath: string): Promise<DirEntry[] | null> => {
     const result = await window.api.listDir(dirPath)
     if (!result.ok) {
       window.alert(result.error)
-      return []
+      return null
     }
     return result.entries
   }, [])
@@ -635,6 +644,9 @@ export default function App(): JSX.Element {
         case 'openFolder':
           void handleOpenFolder()
           break
+        case 'reloadWorkspace':
+          void refreshTree()
+          break
         case 'save':
           void handleSave()
           break
@@ -663,6 +675,7 @@ export default function App(): JSX.Element {
     handleMenuNewFolder,
     handleOpen,
     handleOpenFolder,
+    refreshTree,
     handleSave,
     handleSaveAs,
     handleOpenRecent,
@@ -688,6 +701,7 @@ export default function App(): JSX.Element {
       <aside className="file-tree-sidebar" style={{ width: sidebarWidth }}>
         <Sidebar
           treeKey={`${workspaceRoot ?? 'empty'}-${treeEpoch}`}
+          treeRefreshToken={treeRefreshToken}
           root={workspaceRoot}
           entries={rootEntries}
           selectedPath={activeTab?.path ?? null}

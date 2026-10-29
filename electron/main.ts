@@ -26,6 +26,11 @@ import {
   type SaveFileRequest,
   type SaveFileResult
 } from '../src/shared/ipc'
+import {
+  APP_MENU_EDIT_LABEL,
+  APP_MENU_FILE_LABEL,
+  buildEditMenuSubmenuItems
+} from '../src/shared/app-menu-chrome'
 import { buildFileMenuSpecs, type FileMenuItemSpec } from '../src/shared/file-menu'
 import {
   buildFormatMenuSpecs,
@@ -152,19 +157,8 @@ function buildAppMenu(): Menu {
   const formatSubmenu = buildFormatMenuSpecs().map(specToTemplate)
 
   return Menu.buildFromTemplate([
-    { label: 'File', submenu: fileSubmenu },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' }
-      ]
-    },
+    { label: APP_MENU_FILE_LABEL, submenu: fileSubmenu },
+    { label: APP_MENU_EDIT_LABEL, submenu: buildEditMenuSubmenuItems() },
     { label: '段落', submenu: paragraphSubmenu },
     { label: '格式', submenu: formatSubmenu }
   ])

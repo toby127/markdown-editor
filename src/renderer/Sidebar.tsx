@@ -10,13 +10,14 @@ export type SidebarProps = {
   onOpenFolder: () => void
   onOpenFile: (path: string) => void
   onRefreshRequest: () => void
-  loadChildren: (dirPath: string) => Promise<DirEntry[]>
+  loadChildren: (dirPath: string) => Promise<DirEntry[] | null>
   onCreateEntry?: (parentPath: string, name: string, kind: 'file' | 'directory') => void
   onRenameEntry?: (path: string, newName: string) => void
   onDeleteEntry?: (path: string) => void
   outlineMarkdown: string | null
   onOutlineJump: (index: number) => void
   treeKey?: string
+  treeRefreshToken?: number
 }
 
 export default function Sidebar({
@@ -32,7 +33,8 @@ export default function Sidebar({
   onDeleteEntry,
   outlineMarkdown,
   onOutlineJump,
-  treeKey
+  treeKey,
+  treeRefreshToken
 }: SidebarProps): JSX.Element {
   const [panel, setPanel] = useState<'files' | 'outline'>('files')
 
@@ -72,6 +74,7 @@ export default function Sidebar({
             onCreateEntry={onCreateEntry}
             onRenameEntry={onRenameEntry}
             onDeleteEntry={onDeleteEntry}
+            refreshToken={treeRefreshToken}
           />
         </div>
       ) : (

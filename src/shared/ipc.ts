@@ -69,6 +69,7 @@ export type MenuActionName =
   | 'newFolder'
   | 'open'
   | 'openFolder'
+  | 'reloadWorkspace'
   | 'save'
   | 'saveAs'
   | 'openRecent'

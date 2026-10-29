@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import type { DirEntry } from '../shared/fs-types'
 import FileTree from './FileTree'
 
@@ -87,6 +87,182 @@ describe('FileTree', () => {
     })
   })
 
+  it('re-fetches children for expanded directories when refreshToken changes', async () => {
+    const loadChildren = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { name: 'first.md', path: '/ws/docs/first.md', kind: 'file' as const }
+      ])
+      .mockResolvedValueOnce([
+        { name: 'first.md', path: '/ws/docs/first.md', kind: 'file' as const },
+        { name: 'second.md', path: '/ws/docs/second.md', kind: 'file' as const }
+      ])
+    const { rerender } = render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={0}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(screen.getByText('first.md')).toBeTruthy()
+    })
+    expect(loadChildren).toHaveBeenCalledTimes(1)
+
+    rerender(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={1}
+      />
+    )
+    await waitFor(() => {
+      expect(screen.getByText('second.md')).toBeTruthy()
+    })
+    expect(loadChildren).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: '折叠 docs' })).toBeTruthy()
+  })
+
+  it('keeps prior children when refresh loadChildren fails', async () => {
+    const loadChildren = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { name: 'kept.md', path: '/ws/docs/kept.md', kind: 'file' as const }
+      ])
+      .mockResolvedValueOnce(null)
+    const { rerender } = render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={0}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(screen.getByText('kept.md')).toBeTruthy()
+    })
+
+    rerender(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={1}
+      />
+    )
+    await waitFor(() => {
+      expect(loadChildren).toHaveBeenCalledTimes(2)
+    })
+    expect(screen.getByText('kept.md')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '折叠 docs' })).toBeTruthy()
+  })
+
+  it('does not loadChildren for expanded paths removed from entries on refresh', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    const loadChildren = vi.fn(async () => [
+      { name: 'nested.md', path: '/ws/docs/nested.md', kind: 'file' as const }
+    ])
+    const { rerender } = render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={0}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(loadChildren).toHaveBeenCalledWith('/ws/docs')
+    })
+    loadChildren.mockClear()
+
+    rerender(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={[{ name: 'readme.md', path: '/ws/readme.md', kind: 'file' }]}
+        loadChildren={loadChildren}
+        refreshToken={1}
+      />
+    )
+    await waitFor(() => {
+      expect(loadChildren).not.toHaveBeenCalled()
+    })
+    expect(alertSpy).not.toHaveBeenCalled()
+    alertSpy.mockRestore()
+  })
+
+  it('re-fetches collapsed directories after refresh when re-expanded', async () => {
+    const loadChildren = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { name: 'stale.md', path: '/ws/docs/stale.md', kind: 'file' as const }
+      ])
+      .mockResolvedValueOnce([
+        { name: 'fresh.md', path: '/ws/docs/fresh.md', kind: 'file' as const }
+      ])
+    const { rerender } = render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={0}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(screen.getByText('stale.md')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: '折叠 docs' }))
+    expect(screen.queryByText('stale.md')).toBeNull()
+
+    rerender(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={1}
+      />
+    )
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(loadChildren).toHaveBeenCalledTimes(2)
+      expect(screen.getByText('fresh.md')).toBeTruthy()
+    })
+    expect(screen.queryByText('stale.md')).toBeNull()
+  })
+
   it('does not open a file on right-click', () => {
     const onOpenFile = vi.fn()
     render(
@@ -120,18 +296,20 @@ describe('FileTree CRUD', () => {
       onRenameEntry: ReturnType<typeof vi.fn>
       onDeleteEntry: ReturnType<typeof vi.fn>
       onOpenFile: ReturnType<typeof vi.fn>
+      onRefreshRequest: ReturnType<typeof vi.fn>
     }> = {}
   ) {
     const onCreateEntry = overrides.onCreateEntry ?? vi.fn()
     const onRenameEntry = overrides.onRenameEntry ?? vi.fn()
     const onDeleteEntry = overrides.onDeleteEntry ?? vi.fn()
     const onOpenFile = overrides.onOpenFile ?? vi.fn()
+    const onRefreshRequest = overrides.onRefreshRequest ?? vi.fn()
     render(
       <FileTree
         root="/ws"
         onOpenFolder={vi.fn()}
         onOpenFile={onOpenFile}
-        onRefreshRequest={vi.fn()}
+        onRefreshRequest={onRefreshRequest}
         entries={sampleEntries}
         loadChildren={vi.fn()}
         onCreateEntry={onCreateEntry}
@@ -139,7 +317,7 @@ describe('FileTree CRUD', () => {
         onDeleteEntry={onDeleteEntry}
       />
     )
-    return { onCreateEntry, onRenameEntry, onDeleteEntry, onOpenFile }
+    return { onCreateEntry, onRenameEntry, onDeleteEntry, onOpenFile, onRefreshRequest }
   }
 
 
@@ -150,6 +328,7 @@ describe('FileTree CRUD', () => {
     const menu = screen.getByRole('menu')
     expect(within(menu).getByRole('menuitem', { name: '新建文件' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '新建文件夹' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '从磁盘重新加载' })).toBeTruthy()
     expect(within(menu).queryByRole('menuitem', { name: '重命名' })).toBeNull()
     expect(within(menu).queryByRole('menuitem', { name: '删除' })).toBeNull()
   })
@@ -160,6 +339,7 @@ describe('FileTree CRUD', () => {
     const menu = screen.getByRole('menu')
     expect(within(menu).getByRole('menuitem', { name: '新建文件' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '新建文件夹' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '从磁盘重新加载' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '重命名' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '删除' })).toBeTruthy()
   })
@@ -171,6 +351,21 @@ describe('FileTree CRUD', () => {
     expect(within(menu).getByRole('menuitem', { name: '重命名' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '删除' })).toBeTruthy()
     expect(within(menu).queryByRole('menuitem', { name: '新建文件' })).toBeNull()
+    expect(within(menu).queryByRole('menuitem', { name: '从磁盘重新加载' })).toBeNull()
+  })
+
+  it('shows reload on blank area context menu', () => {
+    renderTree()
+    fireEvent.contextMenu(screen.getByRole('tree'))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByRole('menuitem', { name: '从磁盘重新加载' })).toBeTruthy()
+  })
+
+  it('calls onRefreshRequest when reload is selected from context menu', () => {
+    const { onRefreshRequest } = renderTree()
+    fireEvent.contextMenu(screen.getByText('ws'))
+    fireEvent.click(screen.getByRole('menuitem', { name: '从磁盘重新加载' }))
+    expect(onRefreshRequest).toHaveBeenCalledTimes(1)
   })
 
   it('renames an entry via context menu prompt', () => {

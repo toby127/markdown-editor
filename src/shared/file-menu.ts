@@ -97,6 +97,12 @@ export function buildFileMenuSpecs(state: {
       accelerator: 'CmdOrCtrl+Shift+O'
     },
     {
+      type: 'command',
+      action: 'reloadWorkspace',
+      label: '从磁盘重新加载',
+      enabled: hasRoot
+    },
+    {
       type: 'submenu',
       id: 'recents',
       label: '最近打开',

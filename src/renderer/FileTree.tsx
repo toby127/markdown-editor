@@ -1,6 +1,6 @@
-import { useCallback, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import type { DirEntry } from '../shared/fs-types'
-import { fileName } from '../shared/paths'
+import { fileName, parentDir } from '../shared/paths'
 import ContextMenu, { type ContextMenuItem } from './ContextMenu'
 
 export type FileTreeProps = {
@@ -9,11 +9,12 @@ export type FileTreeProps = {
   onOpenFolder: () => void
   onOpenFile: (path: string) => void
   onRefreshRequest: () => void
-  loadChildren: (dirPath: string) => Promise<DirEntry[]>
+  loadChildren: (dirPath: string) => Promise<DirEntry[] | null>
   onCreateEntry?: (parentPath: string, name: string, kind: 'file' | 'directory') => void
   onRenameEntry?: (path: string, newName: string) => void
   onDeleteEntry?: (path: string) => void
   selectedPath?: string | null
+  refreshToken?: number
 }
 
 type MenuKind = 'blank' | 'root' | 'directory' | 'file'
@@ -42,6 +43,22 @@ function promptName(message: string, initial = ''): string | null {
   if (value == null) return null
   const trimmed = value.trim()
   return trimmed === '' ? null : trimmed
+}
+
+function pathDepth(path: string): number {
+  return path.split('/').filter(Boolean).length
+}
+
+function directoryStillExists(
+  dirPath: string,
+  root: string,
+  rootEntries: DirEntry[],
+  freshChildren: Record<string, DirEntry[]>
+): boolean {
+  const parent = parentDir(dirPath)
+  const siblings = parent === root ? rootEntries : freshChildren[parent]
+  if (!siblings) return false
+  return siblings.some((e) => e.path === dirPath && e.kind === 'directory')
 }
 
 function FolderIcon(): JSX.Element {
@@ -140,16 +157,65 @@ export default function FileTree({
   entries,
   onOpenFolder,
   onOpenFile,
+  onRefreshRequest,
   loadChildren,
   onCreateEntry,
   onRenameEntry,
   onDeleteEntry,
-  selectedPath = null
+  selectedPath = null,
+  refreshToken = 0
 }: FileTreeProps): JSX.Element {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [childrenMap, setChildrenMap] = useState<Record<string, DirEntry[]>>({})
   const [rootExpanded, setRootExpanded] = useState(true)
   const [menu, setMenu] = useState<MenuState>(null)
+  const expandedRef = useRef(expanded)
+  expandedRef.current = expanded
+  const childrenMapRef = useRef(childrenMap)
+  childrenMapRef.current = childrenMap
+  const entriesRef = useRef(entries)
+  entriesRef.current = entries
+
+  useEffect(() => {
+    if (refreshToken === 0 || !root) return
+    let cancelled = false
+    const rootEntries = entriesRef.current
+    void (async () => {
+      const paths = Array.from(expandedRef.current).sort((a, b) => pathDepth(a) - pathDepth(b))
+      const updates: Record<string, DirEntry[]> = {}
+      const priorChildren = childrenMapRef.current
+
+      for (const dirPath of paths) {
+        if (cancelled) return
+        if (!directoryStillExists(dirPath, root, rootEntries, updates)) {
+          continue
+        }
+        const kids = await loadChildren(dirPath)
+        if (kids !== null) {
+          updates[dirPath] = kids
+        } else if (priorChildren[dirPath]) {
+          updates[dirPath] = priorChildren[dirPath]
+        }
+      }
+      if (!cancelled) {
+        setExpanded((prev) => {
+          let pruned = false
+          const next = new Set(prev)
+          for (const p of prev) {
+            if (!directoryStillExists(p, root, rootEntries, updates)) {
+              next.delete(p)
+              pruned = true
+            }
+          }
+          return pruned ? next : prev
+        })
+        setChildrenMap(updates)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [refreshToken, loadChildren, root])
 
   const onToggleDir = useCallback(
     async (dirPath: string) => {
@@ -165,7 +231,9 @@ export default function FileTree({
 
       if (!(dirPath in childrenMap)) {
         const kids = await loadChildren(dirPath)
-        setChildrenMap((prev) => ({ ...prev, [dirPath]: kids }))
+        if (kids !== null) {
+          setChildrenMap((prev) => ({ ...prev, [dirPath]: kids }))
+        }
       }
 
       setExpanded((prev) => {
@@ -217,6 +285,11 @@ export default function FileTree({
           onSelect: () => createWithPrompt(parent, 'directory')
         })
       }
+      items.push({
+        id: 'reload-from-disk',
+        label: '从磁盘重新加载',
+        onSelect: () => onRefreshRequest()
+      })
     }
 
     if (menu.kind === 'directory' || menu.kind === 'file') {
@@ -246,7 +319,7 @@ export default function FileTree({
     }
 
     return items
-  }, [menu, root, onCreateEntry, onRenameEntry, onDeleteEntry, createWithPrompt])
+  }, [menu, root, onCreateEntry, onRenameEntry, onDeleteEntry, onRefreshRequest, createWithPrompt])
 
   if (!root) {
     return (
