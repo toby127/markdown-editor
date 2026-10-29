@@ -158,24 +158,27 @@ export default function App(): JSX.Element {
   }, [])
 
   const loadRootEntries = useCallback(
-    async (root: string, options?: { preserveOnError?: boolean }) => {
+    async (root: string, options?: { preserveOnError?: boolean }): Promise<boolean> => {
       const result = await window.api.listDir(root)
       if (!result.ok) {
         window.alert(result.error)
         if (!options?.preserveOnError) {
           setRootEntries([])
         }
-        return
+        return false
       }
       setRootEntries(result.entries)
+      return true
     },
     []
   )
 
   const refreshTree = useCallback(async () => {
     if (!workspaceRoot) return
-    await loadRootEntries(workspaceRoot, { preserveOnError: true })
-    setTreeRefreshToken((n) => n + 1)
+    const ok = await loadRootEntries(workspaceRoot, { preserveOnError: true })
+    if (ok) {
+      setTreeRefreshToken((n) => n + 1)
+    }
   }, [workspaceRoot, loadRootEntries])
 
   const handleChangeMarkdown = useCallback(

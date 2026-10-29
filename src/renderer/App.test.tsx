@@ -1129,6 +1129,33 @@ describe('App file workflow', () => {
     )
   })
 
+  it('reloadWorkspace does not bump tree refresh when root listDir fails', async () => {
+    vi.mocked(api.openFolder).mockResolvedValue({ ok: true, path: '/ws' })
+    vi.mocked(api.listDir).mockResolvedValue({
+      ok: true,
+      entries: [{ name: 'a.md', path: '/ws/a.md', kind: 'file' }]
+    })
+
+    await renderApp()
+    await act(async () => {
+      menuHandler?.({ action: 'openFolder' })
+      await Promise.resolve()
+    })
+
+    vi.mocked(api.listDir).mockClear()
+    vi.mocked(api.listDir).mockResolvedValue({ ok: false as const, error: 'root read failed' })
+
+    await act(async () => {
+      menuHandler?.({ action: 'reloadWorkspace' })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(api.listDir).toHaveBeenCalledTimes(1)
+    expect(api.listDir).toHaveBeenCalledWith('/ws')
+    expect(alertSpy).toHaveBeenCalledWith('root read failed')
+  })
+
   it('renders a sidebar splitter with col-resize cursor', async () => {
     await renderApp()
     const splitter = container.querySelector('.sidebar-splitter') as HTMLElement

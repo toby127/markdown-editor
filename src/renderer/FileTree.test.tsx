@@ -1,6 +1,6 @@
 /** @vitest-environment happy-dom */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import type { DirEntry } from '../shared/fs-types'
 import FileTree from './FileTree'
 
@@ -171,6 +171,96 @@ describe('FileTree', () => {
     })
     expect(screen.getByText('kept.md')).toBeTruthy()
     expect(screen.getByRole('button', { name: '折叠 docs' })).toBeTruthy()
+  })
+
+  it('does not loadChildren for expanded paths removed from entries on refresh', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    const loadChildren = vi.fn(async () => [
+      { name: 'nested.md', path: '/ws/docs/nested.md', kind: 'file' as const }
+    ])
+    const { rerender } = render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={0}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(loadChildren).toHaveBeenCalledWith('/ws/docs')
+    })
+    loadChildren.mockClear()
+
+    rerender(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={[{ name: 'readme.md', path: '/ws/readme.md', kind: 'file' }]}
+        loadChildren={loadChildren}
+        refreshToken={1}
+      />
+    )
+    await waitFor(() => {
+      expect(loadChildren).not.toHaveBeenCalled()
+    })
+    expect(alertSpy).not.toHaveBeenCalled()
+    alertSpy.mockRestore()
+  })
+
+  it('re-fetches collapsed directories after refresh when re-expanded', async () => {
+    const loadChildren = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { name: 'stale.md', path: '/ws/docs/stale.md', kind: 'file' as const }
+      ])
+      .mockResolvedValueOnce([
+        { name: 'fresh.md', path: '/ws/docs/fresh.md', kind: 'file' as const }
+      ])
+    const { rerender } = render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={0}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(screen.getByText('stale.md')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: '折叠 docs' }))
+    expect(screen.queryByText('stale.md')).toBeNull()
+
+    rerender(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={1}
+      />
+    )
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(loadChildren).toHaveBeenCalledTimes(2)
+      expect(screen.getByText('fresh.md')).toBeTruthy()
+    })
+    expect(screen.queryByText('stale.md')).toBeNull()
   })
 
   it('does not open a file on right-click', () => {
