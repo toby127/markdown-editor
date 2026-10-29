@@ -32,6 +32,15 @@ npm test
 
 `npm run dev` starts the Electron app. `npm test` runs the Vitest suite once.
 
+## Download
+
+Prebuilt binaries are on the [Releases](https://github.com/toby127/markdown-editor/releases) page (currently [v0.1.0](https://github.com/toby127/markdown-editor/releases/tag/v0.1.0)):
+
+- **Windows** — installer (`Markdown.Editor.Setup.*.exe`) and portable (`.exe`)
+- **macOS** — DMG and ZIP for Intel (`x64`) and Apple Silicon (`arm64`)
+
+macOS builds are unsigned. On first launch, if macOS blocks the app, right-click it → **Open**, then confirm. After that, a normal double-click works.
+
 ## Windows build
 
 ```bash
@@ -39,6 +48,14 @@ npm run dist
 ```
 
 The command builds the app, then packages a Windows x64 installer and a portable executable. Artifacts land under `release/`.
+
+## macOS build
+
+```bash
+npm run dist:mac
+```
+
+Requires macOS (or CI on `macos-latest`). Produces unsigned DMG and ZIP artifacts under `release/`. The GitHub Actions workflow `.github/workflows/release-mac.yml` builds these and attaches them to the release (default tag `v0.1.0` on manual dispatch; version tags `v*` on push).
 
 ## License
 

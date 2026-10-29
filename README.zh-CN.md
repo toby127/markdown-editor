@@ -32,6 +32,15 @@ npm test
 
 `npm run dev` 会启动 Electron 开发窗口。`npm test` 用 Vitest 跑一遍测试。
 
+## 下载
+
+预编译包在 [Releases](https://github.com/toby127/markdown-editor/releases) 页面（当前为 [v0.1.0](https://github.com/toby127/markdown-editor/releases/tag/v0.1.0)）：
+
+- **Windows** — 安装包（`Markdown.Editor.Setup.*.exe`）与便携版（`.exe`）
+- **macOS** — Intel（`x64`）与 Apple Silicon（`arm64`）的 DMG 和 ZIP
+
+macOS 构建未签名。首次打开若被系统拦截，请对应用右键 → **打开**，再确认；之后即可双击启动。
+
 ## Windows 构建
 
 ```bash
@@ -39,6 +48,14 @@ npm run dist
 ```
 
 这条命令会先完成构建，再打出 Windows x64 安装包和便携版。产物都在 `release/` 目录下。
+
+## macOS 构建
+
+```bash
+npm run dist:mac
+```
+
+需要在 macOS 上执行（或使用 `macos-latest` 的 CI）。会生成未签名的 DMG 与 ZIP，产物在 `release/`。GitHub Actions 工作流 `.github/workflows/release-mac.yml` 负责构建并上传到 Release（手动触发默认挂到 `v0.1.0`；推送 `v*` 标签时挂到对应标签）。
 
 ## 许可证
 

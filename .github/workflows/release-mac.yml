@@ -1,0 +1,72 @@
+name: Release macOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS artifacts
+        env:
+          # Unsigned distribution; users may need right-click → Open on first launch.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:mac
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=v0.1.0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          # Attach Mac DMG/ZIP to the release (default: existing v0.1.0).
+          # Does not remove existing Windows assets.
+          files: |
+            release/*.dmg
+            release/*.zip
+          body: |
+            ## Windows
+
+            - **Markdown Editor Setup 0.1.0.exe** — installer
+            - **Markdown Editor 0.1.0.exe** — portable
+            - **Markdown Editor.zip** — portable zip
+
+            ## macOS (unsigned)
+
+            DMG and ZIP for Intel (`x64`) and Apple Silicon (`arm64`), built on GitHub Actions (`macos-latest`).
+
+            **First open:** Gatekeeper may block unsigned apps. Right-click the app → **Open**, then confirm. After that, a normal double-click works.
+
+            ## Notes
+
+            Electron + React + TipTap desktop Markdown editor (Typora-like hybrid editing). MIT.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
