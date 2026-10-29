@@ -22,6 +22,7 @@ describe('buildFileMenuSpecs', () => {
       'newFolder',
       'open',
       'openFolder',
+      'reloadWorkspace',
       'save',
       'saveAs'
     ])
@@ -30,6 +31,38 @@ describe('buildFileMenuSpecs', () => {
     expect(cmds.find((c) => c.action === 'new')?.label).toBe('新建')
     expect(cmds.find((c) => c.action === 'newFile')?.label).toBe('新建文件')
     expect(cmds.find((c) => c.action === 'newFolder')?.label).toBe('新建文件夹')
+  })
+
+  it('places reloadWorkspace after openFolder with label 从磁盘重新加载', () => {
+    const items = buildFileMenuSpecs({ workspaceRoot: '/ws', recents: [] })
+    const openFolderIdx = items.findIndex(
+      (i) => i.type === 'command' && i.action === 'openFolder'
+    )
+    const reloadIdx = items.findIndex(
+      (i) => i.type === 'command' && i.action === 'reloadWorkspace'
+    )
+    const recentsIdx = items.findIndex((i) => i.type === 'submenu')
+    expect(openFolderIdx).toBeGreaterThanOrEqual(0)
+    expect(reloadIdx).toBe(openFolderIdx + 1)
+    expect(recentsIdx).toBe(reloadIdx + 1)
+    const reload = items[reloadIdx] as FileMenuCommandSpec
+    expect(reload.label).toBe('从磁盘重新加载')
+  })
+
+  it('disables reloadWorkspace when workspace root is null or empty', () => {
+    for (const workspaceRoot of [null, ''] as const) {
+      const cmds = commands(buildFileMenuSpecs({ workspaceRoot, recents: [] }))
+      expect(cmds.find((c) => c.action === 'reloadWorkspace')?.enabled).toBe(
+        false
+      )
+    }
+  })
+
+  it('enables reloadWorkspace when workspace root is set', () => {
+    const cmds = commands(
+      buildFileMenuSpecs({ workspaceRoot: '/ws', recents: [] })
+    )
+    expect(cmds.find((c) => c.action === 'reloadWorkspace')?.enabled).toBe(true)
   })
 
   it('enables create when workspace root is set', () => {
