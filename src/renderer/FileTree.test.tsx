@@ -206,18 +206,20 @@ describe('FileTree CRUD', () => {
       onRenameEntry: ReturnType<typeof vi.fn>
       onDeleteEntry: ReturnType<typeof vi.fn>
       onOpenFile: ReturnType<typeof vi.fn>
+      onRefreshRequest: ReturnType<typeof vi.fn>
     }> = {}
   ) {
     const onCreateEntry = overrides.onCreateEntry ?? vi.fn()
     const onRenameEntry = overrides.onRenameEntry ?? vi.fn()
     const onDeleteEntry = overrides.onDeleteEntry ?? vi.fn()
     const onOpenFile = overrides.onOpenFile ?? vi.fn()
+    const onRefreshRequest = overrides.onRefreshRequest ?? vi.fn()
     render(
       <FileTree
         root="/ws"
         onOpenFolder={vi.fn()}
         onOpenFile={onOpenFile}
-        onRefreshRequest={vi.fn()}
+        onRefreshRequest={onRefreshRequest}
         entries={sampleEntries}
         loadChildren={vi.fn()}
         onCreateEntry={onCreateEntry}
@@ -225,7 +227,7 @@ describe('FileTree CRUD', () => {
         onDeleteEntry={onDeleteEntry}
       />
     )
-    return { onCreateEntry, onRenameEntry, onDeleteEntry, onOpenFile }
+    return { onCreateEntry, onRenameEntry, onDeleteEntry, onOpenFile, onRefreshRequest }
   }
 
 
@@ -236,6 +238,7 @@ describe('FileTree CRUD', () => {
     const menu = screen.getByRole('menu')
     expect(within(menu).getByRole('menuitem', { name: '新建文件' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '新建文件夹' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '从磁盘重新加载' })).toBeTruthy()
     expect(within(menu).queryByRole('menuitem', { name: '重命名' })).toBeNull()
     expect(within(menu).queryByRole('menuitem', { name: '删除' })).toBeNull()
   })
@@ -246,6 +249,7 @@ describe('FileTree CRUD', () => {
     const menu = screen.getByRole('menu')
     expect(within(menu).getByRole('menuitem', { name: '新建文件' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '新建文件夹' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: '从磁盘重新加载' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '重命名' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '删除' })).toBeTruthy()
   })
@@ -257,6 +261,21 @@ describe('FileTree CRUD', () => {
     expect(within(menu).getByRole('menuitem', { name: '重命名' })).toBeTruthy()
     expect(within(menu).getByRole('menuitem', { name: '删除' })).toBeTruthy()
     expect(within(menu).queryByRole('menuitem', { name: '新建文件' })).toBeNull()
+    expect(within(menu).queryByRole('menuitem', { name: '从磁盘重新加载' })).toBeNull()
+  })
+
+  it('shows reload on blank area context menu', () => {
+    renderTree()
+    fireEvent.contextMenu(screen.getByRole('tree'))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByRole('menuitem', { name: '从磁盘重新加载' })).toBeTruthy()
+  })
+
+  it('calls onRefreshRequest when reload is selected from context menu', () => {
+    const { onRefreshRequest } = renderTree()
+    fireEvent.contextMenu(screen.getByText('ws'))
+    fireEvent.click(screen.getByRole('menuitem', { name: '从磁盘重新加载' }))
+    expect(onRefreshRequest).toHaveBeenCalledTimes(1)
   })
 
   it('renames an entry via context menu prompt', () => {

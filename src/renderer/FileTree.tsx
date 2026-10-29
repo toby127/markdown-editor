@@ -141,6 +141,7 @@ export default function FileTree({
   entries,
   onOpenFolder,
   onOpenFile,
+  onRefreshRequest,
   loadChildren,
   onCreateEntry,
   onRenameEntry,
@@ -246,6 +247,11 @@ export default function FileTree({
           onSelect: () => createWithPrompt(parent, 'directory')
         })
       }
+      items.push({
+        id: 'reload-from-disk',
+        label: '从磁盘重新加载',
+        onSelect: () => onRefreshRequest()
+      })
     }
 
     if (menu.kind === 'directory' || menu.kind === 'file') {
@@ -275,7 +281,7 @@ export default function FileTree({
     }
 
     return items
-  }, [menu, root, onCreateEntry, onRenameEntry, onDeleteEntry, createWithPrompt])
+  }, [menu, root, onCreateEntry, onRenameEntry, onDeleteEntry, onRefreshRequest, createWithPrompt])
 
   if (!root) {
     return (
