@@ -132,6 +132,47 @@ describe('FileTree', () => {
     expect(screen.getByRole('button', { name: '折叠 docs' })).toBeTruthy()
   })
 
+  it('keeps prior children when refresh loadChildren fails', async () => {
+    const loadChildren = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { name: 'kept.md', path: '/ws/docs/kept.md', kind: 'file' as const }
+      ])
+      .mockResolvedValueOnce(null)
+    const { rerender } = render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={0}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: '展开 docs' }))
+    await waitFor(() => {
+      expect(screen.getByText('kept.md')).toBeTruthy()
+    })
+
+    rerender(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={loadChildren}
+        refreshToken={1}
+      />
+    )
+    await waitFor(() => {
+      expect(loadChildren).toHaveBeenCalledTimes(2)
+    })
+    expect(screen.getByText('kept.md')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '折叠 docs' })).toBeTruthy()
+  })
+
   it('does not open a file on right-click', () => {
     const onOpenFile = vi.fn()
     render(

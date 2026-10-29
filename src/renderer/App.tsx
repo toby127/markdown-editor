@@ -331,11 +331,11 @@ export default function App(): JSX.Element {
     [openPaths]
   )
 
-  const loadChildren = useCallback(async (dirPath: string): Promise<DirEntry[]> => {
+  const loadChildren = useCallback(async (dirPath: string): Promise<DirEntry[] | null> => {
     const result = await window.api.listDir(dirPath)
     if (!result.ok) {
       window.alert(result.error)
-      return []
+      return null
     }
     return result.entries
   }, [])

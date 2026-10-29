@@ -9,7 +9,7 @@ export type FileTreeProps = {
   onOpenFolder: () => void
   onOpenFile: (path: string) => void
   onRefreshRequest: () => void
-  loadChildren: (dirPath: string) => Promise<DirEntry[]>
+  loadChildren: (dirPath: string) => Promise<DirEntry[] | null>
   onCreateEntry?: (parentPath: string, name: string, kind: 'file' | 'directory') => void
   onRenameEntry?: (path: string, newName: string) => void
   onDeleteEntry?: (path: string) => void
@@ -165,7 +165,9 @@ export default function FileTree({
       for (const dirPath of paths) {
         if (cancelled) return
         const kids = await loadChildren(dirPath)
-        updates[dirPath] = kids
+        if (kids !== null) {
+          updates[dirPath] = kids
+        }
       }
       if (!cancelled) {
         setChildrenMap((prev) => ({ ...prev, ...updates }))
@@ -190,7 +192,9 @@ export default function FileTree({
 
       if (!(dirPath in childrenMap)) {
         const kids = await loadChildren(dirPath)
-        setChildrenMap((prev) => ({ ...prev, [dirPath]: kids }))
+        if (kids !== null) {
+          setChildrenMap((prev) => ({ ...prev, [dirPath]: kids }))
+        }
       }
 
       setExpanded((prev) => {
