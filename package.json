@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dist": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && electron-builder --mac --publish never",
     "dist:dir": "npm run build && electron-builder --win --dir"
   },
   "dependencies": {
@@ -55,6 +55,7 @@
       "out/**/*"
     ],
     "asar": true,
+    "publish": null,
     "win": {
       "signAndEditExecutable": false,
       "target": [
