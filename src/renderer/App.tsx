@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { applyEditorMenuAction } from '../shared/editor-menu'
-import type { MenuAction, MenuActionName } from '../shared/ipc'
+import { markdownToHtml } from '../shared/markdown'
+import { buildExportHtml } from '../shared/export-html'
+import type { IndexedFile, MenuAction, MenuActionName } from '../shared/ipc'
+import { resolveWikiTarget } from '../shared/wiki-link'
 import type { DirEntry, TabModel } from '../shared/fs-types'
 import {
   anyDirty,
@@ -85,6 +88,9 @@ export default function App(): JSX.Element {
     parseRecentsJson(localStorage.getItem(RECENTS_STORAGE_KEY))
   )
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_WIDTH_DEFAULT)
+  const [indexFiles, setIndexFiles] = useState<IndexedFile[]>([])
+  const [indexError, setIndexError] = useState<string | null>(null)
+  const [indexScanning, setIndexScanning] = useState(false)
 
   const tabsRef = useRef(tabs)
   const activeTabIdRef = useRef(activeTabId)
@@ -173,13 +179,46 @@ export default function App(): JSX.Element {
     []
   )
 
+  /** One read-only scan feeds tags, search and backlinks. */
+  const buildIndexFor = useCallback(async (root: string | null) => {
+    if (!root) {
+      setIndexFiles([])
+      return
+    }
+    setIndexScanning(true)
+    setIndexError(null)
+    try {
+      const result = await window.api.buildIndex(root)
+      if (result.ok) setIndexFiles(result.files)
+      else setIndexError(result.error)
+    } catch {
+      setIndexError('扫描工作区失败')
+    } finally {
+      setIndexScanning(false)
+    }
+  }, [])
+
+  const tagFiles = useMemo(
+    () =>
+      indexFiles
+        .filter((file) => file.tags.length > 0)
+        .map((file) => ({
+          path: file.path,
+          name: file.name,
+          title: file.title,
+          tags: file.tags
+        })),
+    [indexFiles]
+  )
+
   const refreshTree = useCallback(async () => {
     if (!workspaceRoot) return
     const ok = await loadRootEntries(workspaceRoot, { preserveOnError: true })
     if (ok) {
       setTreeRefreshToken((n) => n + 1)
     }
-  }, [workspaceRoot, loadRootEntries])
+    void buildIndexFor(workspaceRoot)
+  }, [workspaceRoot, loadRootEntries, buildIndexFor])
 
   const handleChangeMarkdown = useCallback(
     (content: string) => {
@@ -211,8 +250,9 @@ export default function App(): JSX.Element {
       setWorkspaceRoot(root)
       await loadRootEntries(root)
       setTreeEpoch((n) => n + 1)
+      void buildIndexFor(root)
     },
-    [loadRootEntries]
+    [loadRootEntries, buildIndexFor]
   )
 
   const handleOpen = useCallback(async () => {
@@ -273,6 +313,15 @@ export default function App(): JSX.Element {
       setRecents((r) => recordRecent(r, { path: filePath, kind: 'file' }))
     },
     [syncWindowDirty]
+  )
+
+  const handleWikiLink = useCallback(
+    (target: string) => {
+      const resolved = resolveWikiTarget(target, indexFiles)
+      if (resolved) void handleOpenFileFromTree(resolved)
+      else window.alert(`未找到链接目标：${target}`)
+    },
+    [indexFiles, handleOpenFileFromTree]
   )
 
   const openPaths = useCallback(
@@ -403,6 +452,20 @@ export default function App(): JSX.Element {
     })
     void window.api.closeWindow()
   }, [syncWindowDirty])
+
+  const handleExport = useCallback(async (kind: 'html' | 'pdf') => {
+    const tab = tabsRef.current.find((t) => t.id === activeTabIdRef.current)
+    if (!tab) return
+    const bodyHtml = markdownToHtml(tab.content)
+    const docTitle = tab.title.replace(/\.(md|markdown)$/i, '') || 'document'
+    const html = buildExportHtml(bodyHtml, docTitle)
+    const req = { suggestedName: docTitle, html }
+    const result =
+      kind === 'html'
+        ? await window.api.exportHtml(req)
+        : await window.api.exportPdf(req)
+    if (!result.ok && 'error' in result) window.alert(result.error)
+  }, [])
 
   const resolveDirtyTab = useCallback(
     async (tab: TabModel): Promise<'ok' | 'cancel'> => {
@@ -653,6 +716,12 @@ export default function App(): JSX.Element {
         case 'saveAs':
           void handleSaveAs()
           break
+        case 'exportHtml':
+          void handleExport('html')
+          break
+        case 'exportPdf':
+          void handleExport('pdf')
+          break
         case 'openRecent':
           if (msg.path && msg.kind) void handleOpenRecent(msg.path, msg.kind)
           break
@@ -678,6 +747,7 @@ export default function App(): JSX.Element {
     refreshTree,
     handleSave,
     handleSaveAs,
+    handleExport,
     handleOpenRecent,
     handleClearRecents
   ])
@@ -726,6 +796,14 @@ export default function App(): JSX.Element {
           onOutlineJump={(i) => {
             editorRef.current?.jumpToHeading(i)
           }}
+          tagFiles={tagFiles}
+          tagError={indexError}
+          tagsScanning={indexScanning}
+          onRefreshTags={() => void buildIndexFor(workspaceRoot)}
+          indexFiles={indexFiles}
+          indexError={indexError}
+          indexScanning={indexScanning}
+          onRefreshIndex={() => void buildIndexFor(workspaceRoot)}
         />
         <div
           className="sidebar-splitter"
@@ -754,6 +832,7 @@ export default function App(): JSX.Element {
               content={activeTab.content}
               onChangeMarkdown={handleChangeMarkdown}
               onDirty={handleDirty}
+              onWikiLink={handleWikiLink}
             />
           </>
         ) : (

@@ -1,19 +1,15 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { useEditor, EditorContent, Extension, type Editor as TiptapEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Link from '@tiptap/extension-link'
-import Underline from '@tiptap/extension-underline'
-import Highlight from '@tiptap/extension-highlight'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
 import Placeholder from '@tiptap/extension-placeholder'
-import { Markdown } from 'tiptap-markdown'
+import { createMarkdownExtensions } from '../shared/md-extensions'
 import { CurrentBlockMarkdown, MarkdownSource } from './extensions/CurrentBlockMarkdown'
+import { AnchorJump } from './extensions/AnchorJump'
 
 export type EditorProps = {
   content: string
   onChangeMarkdown: (markdown: string) => void
   onDirty?: () => void
+  onWikiLink?: (target: string) => void
 }
 
 export type EditorHandle = {
@@ -67,36 +63,30 @@ const HeadingShortcuts = Extension.create({
 })
 
 const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChangeMarkdown, onDirty },
+  { content, onChangeMarkdown, onDirty, onWikiLink },
   ref
 ): JSX.Element {
   const onChangeRef = useRef(onChangeMarkdown)
   const onDirtyRef = useRef(onDirty)
+  const onWikiLinkRef = useRef(onWikiLink)
   const lastEmittedRef = useRef(content)
 
   onChangeRef.current = onChangeMarkdown
   onDirtyRef.current = onDirty
+  onWikiLinkRef.current = onWikiLink
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      ...createMarkdownExtensions(),
       HeadingShortcuts,
-      Link.configure({ openOnClick: false }),
-      Underline,
-      Highlight,
-      TaskList,
-      TaskItem.configure({ nested: true }),
       Placeholder.configure({
         placeholder: '开始写作…'
       }),
-      // html: true — required for tiptap-markdown setContent/getMarkdown (see Task 2)
-      Markdown.configure({
-        html: true,
-        transformPastedText: true,
-        transformCopiedText: true
-      }),
       MarkdownSource,
-      CurrentBlockMarkdown
+      CurrentBlockMarkdown,
+      AnchorJump.configure({
+        onWikiLink: (target) => onWikiLinkRef.current?.(target)
+      })
     ],
     content,
     editorProps: {

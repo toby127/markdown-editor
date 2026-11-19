@@ -1,17 +1,11 @@
 import { Editor } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
-import Link from '@tiptap/extension-link'
-import { Markdown } from 'tiptap-markdown'
+import { createMarkdownExtensions } from './md-extensions'
 
 function createHeadlessEditor() {
   return new Editor({
-    extensions: [
-      StarterKit,
-      Link.configure({ openOnClick: false }),
-      // html: true (library default) — setContent always routes strings through
-      // markdown-it; html:false escapes HTML tags so htmlToMarkdown cannot work.
-      Markdown.configure({ html: true, transformPastedText: true, transformCopiedText: true })
-    ],
+    // Same semantic extensions as the on-screen editor so md -> HTML -> md
+    // roundtrips exactly what the user can edit. See md-extensions.ts.
+    extensions: createMarkdownExtensions(),
     content: ''
   })
 }

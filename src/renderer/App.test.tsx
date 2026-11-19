@@ -107,7 +107,11 @@ describe('App file workflow', () => {
       abortClose: vi.fn(async () => undefined),
       syncMenuState: vi.fn(async () => undefined),
       getSidebarWidth: vi.fn(async () => 220),
-      setSidebarWidth: vi.fn(async (width: number) => width)
+      setSidebarWidth: vi.fn(async (width: number) => width),
+      exportHtml: vi.fn(async () => ({ ok: false as const, canceled: true as const })),
+      exportPdf: vi.fn(async () => ({ ok: false as const, canceled: true as const })),
+      scanTags: vi.fn(async () => ({ ok: true as const, files: [] })),
+      buildIndex: vi.fn(async () => ({ ok: true as const, root: '/ws', files: [] }))
     }
     window.api = api
 

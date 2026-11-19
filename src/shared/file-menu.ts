@@ -122,6 +122,19 @@ export function buildFileMenuSpecs(state: {
       label: '另存为…',
       enabled: true,
       accelerator: 'CmdOrCtrl+Shift+S'
+    },
+    { type: 'separator' },
+    {
+      type: 'command',
+      action: 'exportHtml',
+      label: '导出为 HTML…',
+      enabled: true
+    },
+    {
+      type: 'command',
+      action: 'exportPdf',
+      label: '导出为 PDF…',
+      enabled: true
     }
   ]
 }

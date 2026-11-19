@@ -20,7 +20,11 @@ export const IpcChannels = {
   onRequestClose: 'app:requestClose',
   abortClose: 'window:abortClose',
   getSidebarWidth: 'prefs:getSidebarWidth',
-  setSidebarWidth: 'prefs:setSidebarWidth'
+  setSidebarWidth: 'prefs:setSidebarWidth',
+  exportHtml: 'export:html',
+  exportPdf: 'export:pdf',
+  scanTags: 'workspace:scanTags',
+  buildIndex: 'workspace:buildIndex'
 } as const
 
 export type OpenFileResult =
@@ -63,6 +67,11 @@ export type RenameEntryResult =
 
 export type DeleteEntryResult = { ok: true } | { ok: false; error: string }
 
+export type ExportResult =
+  | { ok: true; path: string }
+  | { ok: false; canceled: true }
+  | { ok: false; error: string }
+
 export type MenuActionName =
   | 'new'
   | 'newFile'
@@ -72,6 +81,8 @@ export type MenuActionName =
   | 'reloadWorkspace'
   | 'save'
   | 'saveAs'
+  | 'exportHtml'
+  | 'exportPdf'
   | 'openRecent'
   | 'clearRecents'
   // paragraph
@@ -152,4 +163,36 @@ export type MarkdownEditorApi = {
   abortClose: () => Promise<void>
   getSidebarWidth: () => Promise<number>
   setSidebarWidth: (width: number) => Promise<number>
+  exportHtml: (req: ExportRequest) => Promise<ExportResult>
+  exportPdf: (req: ExportRequest) => Promise<ExportResult>
+  scanTags: (root: string) => Promise<WorkspaceTagsResult>
+  buildIndex: (root: string) => Promise<WorkspaceIndex>
 }
+
+export type ExportRequest = { suggestedName: string; html: string }
+
+export type TagFile = {
+  path: string
+  name: string
+  title: string | null
+  tags: string[]
+}
+
+export type WorkspaceTagsResult =
+  | { ok: true; files: TagFile[] }
+  | { ok: false; error: string }
+
+export type IndexedFile = {
+  path: string
+  name: string
+  title: string | null
+  tags: string[]
+  headings: string[]
+  /** Normalized wiki link targets used in this file. */
+  links: string[]
+  content: string
+}
+
+export type WorkspaceIndex =
+  | { ok: true; root: string; files: IndexedFile[] }
+  | { ok: false; error: string }

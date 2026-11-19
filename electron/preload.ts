@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import {
   IpcChannels,
   type CreateEntryRequest,
+  type ExportRequest,
   type MarkdownEditorApi,
   type MenuAction,
   type MenuSyncState,
@@ -55,7 +56,11 @@ const api: MarkdownEditorApi = {
   abortClose: () => ipcRenderer.invoke(IpcChannels.abortClose),
   getSidebarWidth: () => ipcRenderer.invoke(IpcChannels.getSidebarWidth),
   setSidebarWidth: (width: number) =>
-    ipcRenderer.invoke(IpcChannels.setSidebarWidth, width)
+    ipcRenderer.invoke(IpcChannels.setSidebarWidth, width),
+  exportHtml: (req: ExportRequest) => ipcRenderer.invoke(IpcChannels.exportHtml, req),
+  exportPdf: (req: ExportRequest) => ipcRenderer.invoke(IpcChannels.exportPdf, req),
+  scanTags: (root: string) => ipcRenderer.invoke(IpcChannels.scanTags, root),
+  buildIndex: (root: string) => ipcRenderer.invoke(IpcChannels.buildIndex, root)
 }
 
 contextBridge.exposeInMainWorld('api', api)

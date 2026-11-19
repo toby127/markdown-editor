@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { IpcChannels } from './ipc'
 import type {
   CreateEntryRequest,
+  ExportRequest,
   MarkdownEditorApi,
   MenuAction,
   MenuSyncState,
@@ -33,7 +34,11 @@ describe('IpcChannels', () => {
       onRequestClose: 'app:requestClose',
       abortClose: 'window:abortClose',
       getSidebarWidth: 'prefs:getSidebarWidth',
-      setSidebarWidth: 'prefs:setSidebarWidth'
+      setSidebarWidth: 'prefs:setSidebarWidth',
+      exportHtml: 'export:html',
+      exportPdf: 'export:pdf',
+      scanTags: 'workspace:scanTags',
+      buildIndex: 'workspace:buildIndex'
     })
   })
 })
@@ -94,7 +99,10 @@ describe('MarkdownEditorApi type surface', () => {
       },
       abortClose: async () => undefined,
       getSidebarWidth: async () => 220,
-      setSidebarWidth: async (_width: number) => 220
+      setSidebarWidth: async (_width: number) => 220,
+      exportHtml: async (_req: ExportRequest) => ({ ok: false as const, canceled: true as const }),
+      exportPdf: async (_req: ExportRequest) => ({ ok: false as const, canceled: true as const }),
+      scanTags: async (_root: string) => ({ ok: true as const, files: [] })
     } satisfies MarkdownEditorApi
 
     expect(typeof api.onMenuAction).toBe('function')

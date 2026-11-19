@@ -110,6 +110,15 @@ body {
   font-size: 0.875em;
 }
 
+/* Footnote references are inline atoms, not links — keep the marker visible
+   but visually distinct from ordinary text. */
+.editor .footnote-ref {
+  color: #2563eb;
+  font-size: 0.8em;
+  vertical-align: super;
+  cursor: default;
+}
+
 .editor a {
   color: #2563eb;
   text-decoration: underline;
@@ -524,4 +533,269 @@ body {
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+/* Workspace tag index */
+.tag-panel {
+  padding: 0.6rem 0.75rem 1rem;
+  font-size: 0.8125rem;
+}
+
+.tag-panel-empty {
+  padding: 1rem 0.75rem;
+  color: #737373;
+  font-size: 0.8125rem;
+}
+
+.tag-panel-empty button {
+  display: block;
+  margin-top: 0.6rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tag-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #737373;
+  margin-bottom: 0.6rem;
+}
+
+.tag-panel-head button {
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0.15rem 0.45rem;
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.8rem;
+}
+
+.tag-chip {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 999px;
+  background: #fff;
+  color: #3f3f46;
+  cursor: pointer;
+}
+
+.tag-chip:hover {
+  border-color: #a1a1aa;
+}
+
+.tag-chip-active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+.tag-count {
+  opacity: 0.65;
+  margin-left: 0.15rem;
+}
+
+.tag-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tag-files li {
+  border-bottom: 1px solid #eee;
+}
+
+.tag-files button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.25rem;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-files button:hover {
+  background: #ececef;
+}
+
+/* Five sidebar tabs need tighter padding in the default 220px sidebar. */
+.sidebar-tab {
+  padding: 0.55rem 0.15rem 0.45rem;
+  font-size: 0.75rem;
+}
+
+/* Wiki link atom */
+.wiki-link {
+  color: #2563eb;
+  cursor: pointer;
+  border-bottom: 1px dotted #93c5fd;
+}
+
+.wiki-link:hover {
+  color: #1d4ed8;
+  border-bottom-style: solid;
+}
+
+/* Workspace full-text search */
+.search-panel {
+  padding: 0.6rem 0.75rem 1rem;
+  font-size: 0.8125rem;
+}
+
+.search-head {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.search-head input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+}
+
+.search-head button {
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0.15rem 0.4rem;
+}
+
+.search-head button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.search-empty,
+.backlinks-empty {
+  padding: 0.5rem 0;
+  color: #737373;
+  font-size: 0.8125rem;
+}
+
+.search-summary {
+  color: #737373;
+  margin-bottom: 0.4rem;
+  font-size: 0.75rem;
+}
+
+.search-results,
+.backlinks-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.search-result {
+  margin-bottom: 0.6rem;
+}
+
+.search-result > button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.2rem 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-hit {
+  display: flex;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #525252;
+  line-height: 1.4;
+}
+
+.search-line {
+  flex: 0 0 auto;
+  color: #a3a3a3;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-snippet,
+.backlinks-contexts {
+  overflow-wrap: anywhere;
+}
+
+.search-panel mark,
+.backlinks-panel mark {
+  background: #fef08a;
+  color: inherit;
+}
+
+/* Wiki link backlinks */
+.backlinks-panel {
+  padding: 0.6rem 0.75rem 1rem;
+  font-size: 0.8125rem;
+}
+
+.backlinks-section {
+  margin-bottom: 1rem;
+}
+
+.backlinks-heading {
+  margin: 0 0 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+.backlinks-count {
+  color: #a3a3a3;
+  font-weight: 400;
+}
+
+.backlinks-list li {
+  border-bottom: 1px solid #eee;
+  padding: 0.3rem 0;
+}
+
+.backlinks-list button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backlinks-contexts {
+  color: #737373;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.backlinks-contexts div {
+  margin-top: 0.15rem;
 }

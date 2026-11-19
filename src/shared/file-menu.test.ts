@@ -24,7 +24,9 @@ describe('buildFileMenuSpecs', () => {
       'openFolder',
       'reloadWorkspace',
       'save',
-      'saveAs'
+      'saveAs',
+      'exportHtml',
+      'exportPdf'
     ])
     expect(cmds.find((c) => c.action === 'newFile')?.enabled).toBe(false)
     expect(cmds.find((c) => c.action === 'newFolder')?.enabled).toBe(false)

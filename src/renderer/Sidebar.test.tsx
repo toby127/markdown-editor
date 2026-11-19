@@ -26,6 +26,15 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: 'Hello' })).toBeTruthy()
   })
 
+  it('switches to search and backlinks panels', () => {
+    render(<Sidebar {...baseProps} />)
+    fireEvent.click(screen.getByRole('tab', { name: '搜索' }))
+    expect(screen.getByLabelText('搜索工作区')).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: '反链' }))
+    expect(screen.getByText('出链')).toBeTruthy()
+    expect(screen.getByText('反向链接')).toBeTruthy()
+  })
+
   it('files panel is FileTree only — no toolbar or recent list', () => {
     const { container } = render(<Sidebar {...baseProps} />)
     const panel = container.querySelector('.sidebar-panel-files') as HTMLElement

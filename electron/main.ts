@@ -15,6 +15,8 @@ import {
   type CreateEntryRequest,
   type CreateEntryResult,
   type DeleteEntryResult,
+  type ExportRequest,
+  type ExportResult,
   type ListDirResult,
   type MenuAction,
   type MenuSyncState,
@@ -24,8 +26,12 @@ import {
   type RenameEntryRequest,
   type RenameEntryResult,
   type SaveFileRequest,
-  type SaveFileResult
+  type SaveFileResult,
+  type WorkspaceIndex,
+  type WorkspaceTagsResult
 } from '../src/shared/ipc'
+import { scanWorkspaceTags } from './workspace-tags'
+import { buildWorkspaceIndex } from './workspace-index'
 import {
   APP_MENU_EDIT_LABEL,
   APP_MENU_FILE_LABEL,
@@ -445,6 +451,16 @@ function registerFileHandlers(): void {
   })
 
   ipcMain.handle(
+    IpcChannels.scanTags,
+    async (_event, root: string): Promise<WorkspaceTagsResult> => scanWorkspaceTags(root)
+  )
+
+  ipcMain.handle(
+    IpcChannels.buildIndex,
+    async (_event, root: string): Promise<WorkspaceIndex> => buildWorkspaceIndex(root)
+  )
+
+  ipcMain.handle(
     IpcChannels.createEntry,
     async (_event, req: CreateEntryRequest): Promise<CreateEntryResult> => {
       const target = join(req.parentPath, req.name)
@@ -509,6 +525,62 @@ function registerFileHandlers(): void {
       appPrefs = withSidebarWidth(appPrefs, width)
       persistAppPrefs()
       return appPrefs.sidebarWidth
+    }
+  )
+
+  ipcMain.handle(
+    IpcChannels.exportHtml,
+    async (_event, req: ExportRequest): Promise<ExportResult> => {
+      const win = mainWindow ?? undefined
+      const { canceled, filePath } = await dialog.showSaveDialog(win, {
+        filters: [
+          { name: 'HTML', extensions: ['html', 'htm'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      })
+      if (canceled || !filePath) return { ok: false, canceled: true }
+      try {
+        await fs.writeFile(filePath, req.html, 'utf8')
+        return { ok: true, path: filePath }
+      } catch (e) {
+        return { ok: false, error: `导出 HTML 失败：${(e as Error).message}` }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    IpcChannels.exportPdf,
+    async (_event, req: ExportRequest): Promise<ExportResult> => {
+      const win = mainWindow ?? undefined
+      const { canceled, filePath } = await dialog.showSaveDialog(win, {
+        filters: [
+          { name: 'PDF', extensions: ['pdf'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      })
+      if (canceled || !filePath) return { ok: false, canceled: true }
+
+      // Render the HTML in an off-screen window, then print it to PDF. Using
+      // document.write via executeJavaScript avoids data-URI length limits for
+      // large documents.
+      const printWindow = new BrowserWindow({
+        show: false,
+        webPreferences: { nodeIntegration: false, contextIsolation: true }
+      })
+      try {
+        await printWindow.loadURL('about:blank')
+        await printWindow.webContents.executeJavaScript(
+          `document.open();document.write(${JSON.stringify(req.html)});document.close();`,
+          true
+        )
+        const pdf = await printWindow.webContents.printToPDF({ printBackground: true })
+        await fs.writeFile(filePath, pdf)
+        return { ok: true, path: filePath }
+      } catch (e) {
+        return { ok: false, error: `导出 PDF 失败：${(e as Error).message}` }
+      } finally {
+        if (!printWindow.isDestroyed()) printWindow.close()
+      }
     }
   )
 }

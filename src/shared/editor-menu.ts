@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import type { MenuActionName } from './ipc'
+import { createHeadingSlugger } from './slugger'
 
 export type EditorMenuCommandSpec = {
   type: 'command'
@@ -23,21 +24,21 @@ export type EditorMenuItemSpec =
   | EditorMenuSeparatorSpec
   | EditorMenuSubmenuSpec
 
-const STUBS = new Set<MenuActionName>([
-  'insertTable',
-  'mathBlock',
-  'linkReference',
-  'footnote',
-  'toc',
-  'yamlFrontMatter',
-  'htmlBlock',
-  'deleteBlock',
-  'inlineMath',
-  'superscript',
-  'subscript',
-  'comment',
-  'image'
-])
+/**
+ * Insert Markdown source at the caret. tiptap-markdown patches
+ * `insertContentAt` so a string argument is parsed as Markdown rather than
+ * HTML — this is the same parser used when opening a .md file, which is what
+ * guarantees these inserted blocks survive an open/edit/save roundtrip.
+ */
+function insertMarkdown(editor: Editor, markdown: string): boolean {
+  const { from, to } = editor.state.selection
+  return editor.chain().focus().insertContentAt({ from, to }, markdown).run()
+}
+
+/** Insert at an absolute document position (used for front matter at pos 0). */
+function insertMarkdownAt(editor: Editor, position: number, markdown: string): boolean {
+  return editor.chain().focus().insertContentAt(position, markdown).run()
+}
 
 export function flattenCommands(items: EditorMenuItemSpec[]): EditorMenuCommandSpec[] {
   const out: EditorMenuCommandSpec[] = []
@@ -137,10 +138,6 @@ function headingLevel(editor: Editor): number | null {
 }
 
 export function applyEditorMenuAction(editor: Editor, action: MenuActionName): boolean {
-  if (STUBS.has(action)) {
-    window.alert('暂不支持')
-    return false
-  }
   const chain = () => editor.chain().focus()
   switch (action) {
     case 'paragraph':
@@ -169,8 +166,23 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
       if (level >= 6) return chain().setParagraph().run()
       return chain().toggleHeading({ level: (level + 1) as 1 | 2 | 3 | 4 | 5 | 6 }).run()
     }
+    case 'insertTable':
+      return chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+    case 'image': {
+      const src = window.prompt('图片 URL', 'https://')
+      if (src === null || src.trim() === '') return false
+      const alt = window.prompt('图片描述（可选）', '') ?? ''
+      return chain().setImage({ src: src.trim(), alt: alt.trim() }).run()
+    }
     case 'codeBlock':
       return chain().toggleCodeBlock().run()
+    case 'mathBlock': {
+      const expression = window.prompt('LaTeX 公式', 'E = mc^2')
+      if (expression === null || expression.trim() === '') return false
+      // `$$` fenced math stays verbatim as paragraph text through the
+      // roundtrip; full KaTeX rendering is a separate, heavier dependency.
+      return insertMarkdown(editor, `$$\n${expression.trim()}\n$$\n`)
+    }
     case 'blockquote':
       return chain().toggleBlockquote().run()
     case 'orderedList':
@@ -197,6 +209,73 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
       )
     case 'horizontalRule':
       return chain().setHorizontalRule().run()
+    case 'linkReference': {
+      const text = window.prompt('链接文字')
+      if (text === null || text.trim() === '') return false
+      const href = window.prompt('链接 URL', 'https://')
+      if (href === null || href.trim() === '') return false
+      // Editor normalizes reference-style links to inline links: the href is
+      // preserved, while a separate definition block would be dropped by
+      // markdown-it on parse. See docs, "known normalizations".
+      return insertMarkdown(editor, `[${text.trim()}](${href.trim()})`)
+    }
+    case 'footnote': {
+      const label = window.prompt('脚注编号', '1')
+      if (label === null || label.trim() === '') return false
+      const note = window.prompt('脚注内容')
+      if (note === null || note.trim() === '') return false
+      return insertMarkdown(editor, `[^${label.trim()}]\n\n[^${label.trim()}]: ${note.trim()}\n`)
+    }
+    case 'toc': {
+      const lines: string[] = []
+      // One slugger for the whole walk so duplicate headings get stable
+      // -1/-2 suffixes that match the anchors written on HTML export.
+      const slug = createHeadingSlugger()
+      editor.state.doc.descendants((node) => {
+        if (node.type.name !== 'heading') return
+        const level = typeof node.attrs.level === 'number' ? node.attrs.level : 1
+        const title = node.textContent.trim()
+        if (title === '') return
+        const anchor = slug(title)
+        const label = title.replace(/([\[\]])/g, '\\$1')
+        lines.push(`${'  '.repeat(Math.max(0, Math.min(6, level) - 1))}- [${label}](#${anchor})`)
+      })
+      if (lines.length === 0) return false
+      return insertMarkdown(editor, `${lines.join('\n')}\n`)
+    }
+    case 'yamlFrontMatter': {
+      const title = window.prompt('文档标题（YAML title）', '')
+      if (title === null) return false
+      const tags = window.prompt('标签（逗号分隔，可留空）', '') ?? ''
+      const tagList = tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .join(', ')
+      const source = `---\ntitle: ${title.trim()}\ntags: [${tagList}]\n---\n`
+      const first = editor.state.doc.firstChild
+      if (first?.type.name === 'frontMatter') {
+        return chain()
+          .deleteRange({ from: 0, to: first.nodeSize })
+          .insertContentAt(0, source)
+          .run()
+      }
+      return insertMarkdownAt(editor, 0, source)
+    }
+    case 'htmlBlock': {
+      const html = window.prompt('HTML 内容', '<div class="note">\n  内容\n</div>')
+      if (html === null || html.trim() === '') return false
+      // Raw HTML would be stripped to its text content by the editor schema;
+      // a fenced block keeps the source byte-for-byte and stays editable.
+      return insertMarkdown(editor, `\`\`\`html\n${html.trim()}\n\`\`\`\n`)
+    }
+    case 'deleteBlock': {
+      const { $from } = editor.state.selection
+      if ($from.depth === 0) return false
+      const from = $from.before(1)
+      const to = $from.after(1)
+      return chain().deleteRange({ from, to }).run()
+    }
     case 'bold':
       return chain().toggleBold().run()
     case 'italic':
@@ -209,6 +288,22 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
       return chain().toggleStrike().run()
     case 'highlight':
       return chain().toggleHighlight().run()
+    case 'superscript':
+      return chain().toggleSuperscript().run()
+    case 'subscript':
+      return chain().toggleSubscript().run()
+    case 'inlineMath': {
+      const expression = window.prompt('LaTeX 行内公式', 'x^2')
+      if (expression === null || expression.trim() === '') return false
+      return insertMarkdown(editor, `$${expression.trim()}$`)
+    }
+    case 'comment': {
+      const text = window.prompt('注释内容')
+      if (text === null || text.trim() === '') return false
+      // HTML comments are not part of the editor schema; keep them verbatim
+      // in a fenced block instead of letting the parser drop them.
+      return insertMarkdown(editor, `\`\`\`text\n<!-- ${text.trim()} -->\n\`\`\`\n`)
+    }
     case 'link': {
       const prev = editor.getAttributes('link').href as string | undefined
       const href = window.prompt('链接 URL', prev ?? 'https://')
