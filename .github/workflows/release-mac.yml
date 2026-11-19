@@ -57,13 +57,16 @@ jobs:
           body: |
             ## Windows
 
-            - **Markdown Editor Setup ${{ steps.tag.outputs.number }}.exe** — installer
-            - **Markdown Editor ${{ steps.tag.outputs.number }}.exe** — portable
-            - **Markdown Editor.zip** — portable zip
+            - **Markdown.Editor.Setup.${{ steps.tag.outputs.number }}.exe** — installer
+            - **Markdown.Editor.${{ steps.tag.outputs.number }}.exe** — portable
+            - **Markdown.Editor.zip** — portable zip
 
             ## macOS (unsigned)
 
-            DMG and ZIP for Intel (`x64`) and Apple Silicon (`arm64`), built on GitHub Actions (`macos-latest`).
+            - **Markdown.Editor-${{ steps.tag.outputs.number }}.dmg** / **Markdown.Editor-${{ steps.tag.outputs.number }}-mac.zip** — Intel (`x64`)
+            - **Markdown.Editor-${{ steps.tag.outputs.number }}-arm64.dmg** / **Markdown.Editor-${{ steps.tag.outputs.number }}-arm64-mac.zip** — Apple Silicon (`arm64`)
+
+            Built on GitHub Actions (`macos-latest`).
 
             **First open:** Gatekeeper may block unsigned apps. Right-click the app → **Open**, then confirm. After that, a normal double-click works.
 
