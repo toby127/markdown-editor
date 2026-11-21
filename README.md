@@ -41,7 +41,7 @@ npm test
 
 ## Download
 
-Prebuilt binaries are on the [Releases](https://github.com/toby127/markdown-editor/releases) page (currently [v0.1.1](https://github.com/toby127/markdown-editor/releases/tag/v0.1.1)):
+Prebuilt binaries are on the [Releases](https://github.com/toby127/markdown-editor/releases) page (currently [v0.1.2](https://github.com/toby127/markdown-editor/releases/tag/v0.1.2)):
 
 - **Windows** — installer (`Markdown.Editor.Setup.*.exe`), portable executable (`Markdown.Editor.*.exe`), and portable zip (`Markdown.Editor.zip`)
 - **macOS** — DMG and ZIP for Intel (`x64`) and Apple Silicon (`arm64`), built on GitHub Actions
@@ -68,7 +68,7 @@ npx electron-builder --win -c.directories.output="C:/Users/<you>/Downloads/markd
 npm run dist:mac
 ```
 
-Requires macOS (or CI on `macos-latest`). Produces unsigned DMG and ZIP artifacts under `release/`. The GitHub Actions workflow `.github/workflows/release-mac.yml` builds these and attaches them to the release (version tags `v*` on push; default tag `v0.1.1` on manual dispatch).
+Requires macOS (or CI on `macos-latest`). Produces unsigned DMG and ZIP artifacts under `release/`. The GitHub Actions workflow `.github/workflows/release-mac.yml` builds these and attaches them to the release (version tags `v*` on push; default tag `v0.1.2` on manual dispatch).
 
 ## License
 

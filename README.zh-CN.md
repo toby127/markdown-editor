@@ -41,7 +41,7 @@ npm test
 
 ## 下载
 
-预编译包在 [Releases](https://github.com/toby127/markdown-editor/releases) 页面（当前为 [v0.1.1](https://github.com/toby127/markdown-editor/releases/tag/v0.1.1)）：
+预编译包在 [Releases](https://github.com/toby127/markdown-editor/releases) 页面（当前为 [v0.1.2](https://github.com/toby127/markdown-editor/releases/tag/v0.1.2)）：
 
 - **Windows** — 安装包（`Markdown.Editor.Setup.*.exe`）、便携版（`.exe`）与便携 zip（`Markdown.Editor.zip`）
 - **macOS** — 由 GitHub Actions 构建的 Intel（`x64`）与 Apple Silicon（`arm64`）DMG 和 ZIP
@@ -68,7 +68,7 @@ npx electron-builder --win -c.directories.output="C:/Users/<you>/Downloads/markd
 npm run dist:mac
 ```
 
-需要在 macOS 上执行（或使用 `macos-latest` 的 CI）。会生成未签名的 DMG 与 ZIP，产物在 `release/`。GitHub Actions 工作流 `.github/workflows/release-mac.yml` 负责构建并上传到 Release（推送 `v*` 标签时挂到对应标签；手动触发默认挂到 `v0.1.1`）。
+需要在 macOS 上执行（或使用 `macos-latest` 的 CI）。会生成未签名的 DMG 与 ZIP，产物在 `release/`。GitHub Actions 工作流 `.github/workflows/release-mac.yml` 负责构建并上传到 Release（推送 `v*` 标签时挂到对应标签；手动触发默认挂到 `v0.1.2`）。
 
 ## 许可证
 
