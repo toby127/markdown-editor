@@ -57,6 +57,8 @@ const api: MarkdownEditorApi = {
   getSidebarWidth: () => ipcRenderer.invoke(IpcChannels.getSidebarWidth),
   setSidebarWidth: (width: number) =>
     ipcRenderer.invoke(IpcChannels.setSidebarWidth, width),
+  getPrefs: () => ipcRenderer.invoke(IpcChannels.getPrefs),
+  setPrefs: (patch) => ipcRenderer.invoke(IpcChannels.setPrefs, patch),
   exportHtml: (req: ExportRequest) => ipcRenderer.invoke(IpcChannels.exportHtml, req),
   exportPdf: (req: ExportRequest) => ipcRenderer.invoke(IpcChannels.exportPdf, req),
   scanTags: (root: string) => ipcRenderer.invoke(IpcChannels.scanTags, root),

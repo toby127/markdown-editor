@@ -42,4 +42,16 @@ describe('buildExportHtml', () => {
     expect(out).not.toContain('<script')
     expect(out).not.toMatch(/onclick/i)
   })
+
+  it('defaults to light theme CSS', () => {
+    const out = buildExportHtml('<p>x</p>', 'Doc')
+    expect(out).toContain('color-scheme: light')
+    expect(out).not.toContain('color-scheme: dark')
+  })
+
+  it('embeds dark theme CSS when requested', () => {
+    const out = buildExportHtml('<p>x</p>', 'Doc', 'dark')
+    expect(out).toContain('color-scheme: dark')
+    expect(out).toContain('#1e1e1e')
+  })
 })

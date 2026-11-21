@@ -1,11 +1,14 @@
 import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import {
+  clampBool,
   clampSidebarWidth,
+  clampTheme,
   clampWindowBounds,
   parsePrefsJson,
   serializePrefs,
   type AppPrefs,
+  type Theme,
   type WindowBounds
 } from './prefs'
 
@@ -42,4 +45,20 @@ export function withWindowBounds(
     ...prefs,
     windowBounds: clampWindowBounds(bounds)
   }
+}
+
+export function withTheme(prefs: AppPrefs, theme: unknown): AppPrefs {
+  return { ...prefs, theme: clampTheme(theme) }
+}
+
+export function withFocusMode(prefs: AppPrefs, value: unknown): AppPrefs {
+  return { ...prefs, focusMode: clampBool(value) }
+}
+
+export function withTypewriterMode(prefs: AppPrefs, value: unknown): AppPrefs {
+  return { ...prefs, typewriterMode: clampBool(value) }
+}
+
+export function withSpellcheck(prefs: AppPrefs, value: unknown): AppPrefs {
+  return { ...prefs, spellcheck: clampBool(value, true) }
 }

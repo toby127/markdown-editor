@@ -122,7 +122,11 @@ describe('serializePrefs / parsePrefsJson', () => {
         width: 960,
         height: 720,
         isMaximized: false
-      }
+      },
+      theme: 'dark',
+      focusMode: true,
+      typewriterMode: false,
+      spellcheck: false
     }
     const raw = serializePrefs(prefs)
     expect(parsePrefsJson(raw)).toEqual(prefs)
@@ -131,15 +135,45 @@ describe('serializePrefs / parsePrefsJson', () => {
   it('clamps sidebar width on parse and tolerates bad json', () => {
     expect(parsePrefsJson(null)).toEqual({
       sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
-      windowBounds: null
+      windowBounds: null,
+      theme: 'light',
+      focusMode: false,
+      typewriterMode: false,
+      spellcheck: true
     })
     expect(parsePrefsJson('not-json')).toEqual({
       sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
-      windowBounds: null
+      windowBounds: null,
+      theme: 'light',
+      focusMode: false,
+      typewriterMode: false,
+      spellcheck: true
     })
     expect(parsePrefsJson(JSON.stringify({ sidebarWidth: 999, windowBounds: null }))).toEqual({
       sidebarWidth: SIDEBAR_WIDTH_MAX,
-      windowBounds: null
+      windowBounds: null,
+      theme: 'light',
+      focusMode: false,
+      typewriterMode: false,
+      spellcheck: true
     })
+  })
+
+  it('defaults new writing/theme prefs for older saved JSON', () => {
+    const parsed = parsePrefsJson(JSON.stringify({ sidebarWidth: 220, windowBounds: null }))
+    expect(parsed.theme).toBe('light')
+    expect(parsed.focusMode).toBe(false)
+    expect(parsed.typewriterMode).toBe(false)
+    expect(parsed.spellcheck).toBe(true)
+  })
+
+  it('clamps invalid theme and boolean values', () => {
+    const parsed = parsePrefsJson(
+      JSON.stringify({ sidebarWidth: 220, windowBounds: null, theme: 'neon', focusMode: 'yes', typewriterMode: true })
+    )
+    expect(parsed.theme).toBe('light')
+    expect(parsed.focusMode).toBe(false)
+    expect(parsed.typewriterMode).toBe(true)
+    expect(parsed.spellcheck).toBe(true)
   })
 })

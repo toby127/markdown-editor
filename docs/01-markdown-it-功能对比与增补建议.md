@@ -487,3 +487,121 @@ function insertMarkdown(editor: Editor, markdown: string): boolean {
 - GFM 脚注的文末定义区 UI 与反向引用面板（已有关联跳转，但没有集中展示）。
 - 聚焦/打字机模式、AI 改写。
 - Wiki 链接目前只按文件名/路径解析，不支持 Obsidian 式的 block reference（`[[note#^block]]`）与标题锚点定位。
+
+---
+
+## 附录 F：文档内查找与替换（Ctrl+F）
+
+### F.1 需求边界
+
+此前「搜索」只覆盖工作区跨文件（附录 E），当前打开的文档内没有查找定位。本次按确认的范围实现：**查找 + 定位 + 替换**，入口为 **Ctrl+F 浮层 + 编辑菜单项**；包含大小写敏感、全词匹配两个选项，不含正则（避免交互与边界复杂度）。
+
+### F.2 核心机制：高亮走 Decoration，替换才改文档
+
+关键约束是**查找本身绝不能破坏 Markdown 往返**。因此：
+
+- 匹配结果用 ProseMirror `Decoration.inline` 渲染（黄色高亮、当前项橙色），完全不写入文档节点。`src/renderer/extensions/DocumentSearch.ts` 的 plugin state 保存 `query / options / matches / currentIndex`，通过 `tr.setMeta` 更新，-decoration 随文档变化自动 map。
+- 只有「替换 / 全部替换」命令用 `tr.insertText` 真正改文档——这是真实文本编辑，会触发正常的 `onUpdate` 与 Markdown 序列化，标脏当前标签页。
+- 已有测试直接断言：`setSearchQuery` 前后 `getMarkdown()` 字节不变；`replaceCurrent` / `replaceAll` 后才变化。
+
+匹配逻辑抽成纯函数 `src/shared/doc-search.ts`：`buildSearchRegExp`（字面量转义，不做正则）、`findInSegments`（跨相邻 text node 匹配并映射回文档坐标）、`clampMatchIndex`（循环导航）。全词边界用 Unicode 的 `\p{L}\p{N}`，避免 `\b` 对中文永远不匹配的问题。
+
+### F.3 浮层 UI 与交互
+
+`src/renderer/FindBar.tsx` 渲染在编辑器容器右上角（`position: absolute`）：
+
+- 查找输入实时重算匹配，显示 `当前 / 总数` 计数；无结果显示「无结果」
+- Enter / ↓ 下一个，Shift+Enter / ↑ 上一个，每个都把选区移到匹配并 `scrollIntoView`
+- 「⇄」切换替换栏，输入替换词后「替换」当前或「全部」替换
+- 两个勾选项：区分大小写、全词匹配
+- Esc 关闭；打开时自动聚焦并全选输入框
+
+入口三处：`Mod-f` 编辑器快捷键、原生编辑菜单「查找」（CmdOrCtrl+F）与「查找并替换」（CmdOrCtrl+Shift+H）。Editor 通过 `EditorHandle.openFind(mode)` 暴露给 App 层的菜单分发。原生菜单项是 action 类型（非 Electron role），在 `main.ts` 的 `editItemToTemplate` 里转成 `sendMenuAction` 走既有 IPC 通道，没有新增 channel。
+
+### F.4 验证
+
+- 全量测试 **302 条通过**（41 个测试文件），`npm run build` 通过。
+- 新增测试：`doc-search.test.ts`（7，纯逻辑含跨节点匹配与 Unicode 全词）、`DocumentSearch.test.ts`（6，扩展命令与「高亮不改文档」断言）、`FindBar.test.tsx`（6，计数/导航/替换模式/关闭），`app-menu-chrome.test.ts` +1（查找项走 IPC 非 role）。
+
+### F.5 仍未完成
+
+- 正则表达式查找（本轮按范围确认暂不做）。
+- 查找栏记住上次的查询词与选项、跨文件会话持久化。
+- 选中内容带入查找框（当前需手动输入）。
+
+---
+
+## 附录 G：侧栏入口重组（视图菜单 + 右键搜索）
+
+### G.1 调整内容
+
+用户反馈左侧栏页签过多，要求重组入口：
+
+- 「标签」「反链」从侧栏页签移到**新增的原生「视图」菜单**
+- 「文件搜索」从侧栏页签移到**文件树右键菜单**
+- 侧栏页签只保留「文件」「大纲」两个常用视图
+
+面板本身没有删除，只是入口位置改变——标签云、反链列表、全文搜索三个面板照旧可用。
+
+### G.2 关键改造：侧栏面板状态提升
+
+此前 `Sidebar` 用内部 `useState` 管理 `panel`，菜单和右键都无法介入。本次把状态提升到 `App`：
+
+- `Sidebar` 导出 `SidebarPanel` 类型，新增受控 props `panel` / `onPanelChange`
+- `App` 持有 `sidebarPanel` 状态，`view*` 菜单动作通过 `setSidebarPanel` 切换
+- 文件树右键的「搜索文件」通过 `onSearchRequest → onPanelChange('search')` 打开搜索面板
+
+原生菜单侧：
+
+- `app-menu-chrome.ts` 新增 `APP_MENU_VIEW_LABEL = '视图'` 与 `buildViewMenuSubmenuItems()`（文件/大纲/标签/反链四项）
+- `MenuActionName` 新增 `viewFiles` / `viewOutline` / `viewTags` / `viewBacklinks`
+- `main.ts` 的 `buildAppMenu` 插入「视图」顶级菜单，用专用的 `viewItemToTemplate` 把 action 转成 `sendMenuAction`（无键盘快捷键，避免和标题/查找冲突）
+
+右键侧：`ContextMenu` 的 `ContextMenuItem` 增加 separator 变体，`FileTree` 在每类右键菜单顶部插入「搜索文件」+分隔线。
+
+「搜索」刻意没放进视图菜单——按用户要求它是右键专属入口。
+
+### G.3 验证
+
+- 全量测试 **309 条通过**（41 个测试文件），`npm run build` 通过。
+- 新增/更新测试：`Sidebar.test.tsx` 改为验证受控 panel prop 与只有两个页签、右键搜索回调；`FileTree.test.tsx` +2（搜索项在各类右键出现、无回调时隐藏）；`app-menu-chrome.test.ts` +1（视图菜单四项且无搜索）；`App.test.tsx` +1（四个 view 动作切换面板）。
+- 变更文件：`Sidebar.tsx`、`FileTree.tsx`、`ContextMenu.tsx`、`styles.css`、`App.tsx`、`app-menu-chrome.ts`、`main.ts`、`ipc.ts` 及四个测试文件。
+
+### G.4 仍未完成
+
+- 「搜索文件」右键入口打开的是全工作区搜索面板，未做按所右键目录限定范围。
+- 视图菜单项无键盘快捷键（侧栏切换目前只能点菜单或页签）。
+
+---
+
+## 附录 H：视图菜单改为面板可见性开关 + 搜索面板 Esc 退出
+
+### H.1 视图菜单语义修正
+
+附录 G 把「标签」「反链」移进「视图」菜单时，实现的是**单选切换**——点一次 `setSidebarPanel(p)`，结果是切换当前面板，侧栏 tab 始终只有文件/大纲两个。这与预期不符：用户要的是**点击后侧栏多出一个面板（tab），再点一次减少**，即面板可见性的 toggle，而非当前面板的切换。
+
+改动：
+
+- `App.tsx` 新增 `visiblePanels: SidebarPanel[]` 状态（默认 `['files', 'outline']`），与 `sidebarPanel`（当前激活）分离。
+- 四个 `view*` 菜单动作改走 `togglePanel`：面板不可见→加入集合并激活（多出一个 tab）；已可见→移除，若移除的是当前激活项则回退到剩余第一个面板。至少保留一个可见面板，避免空侧栏。
+- 可见集合用 `visiblePanelsRef` 同步，保证一次性注册的菜单回调不会读到旧快照；新增面板按 `PANEL_ORDER` 固定顺序插入，不总是追加到末尾。
+- `Sidebar.tsx` 导出 `PANEL_ORDER` / `PANEL_LABELS` 作为顺序与文案的单一数据源，tab 按 `visiblePanels` 动态渲染。新增受控回调 `onPanelShow`（右键搜索用）、`onPanelHide`（Esc 关闭用）。
+- 加了防御：`active` 若不在可见集合内则回退到第一个可见 tab，避免隐藏当前面板瞬间渲染空 body。
+
+### H.2 搜索面板 Esc 退出
+
+此前从文件树右键打开搜索后，按 Esc 无任何反应——`SearchPanel` 没有 Esc 处理，面板也没有关闭回调。改动：
+
+- `SearchPanel` 新增 `onClose`：输入框 `onKeyDown` 捕获 Esc 并 `preventDefault`；同时挂 document 级 keydown，覆盖焦点落在结果按钮上的情况。document 监听检查 `event.defaultPrevented`，让文档内查找栏（`FindBar`，附录 F）在两者同开时优先消费 Esc。
+- 右键搜索从 `onPanelChange('search')` 改为 `onPanelShow('search')`：确保面板先被加入可见集合再激活（原来 search 不在可见集合时，仅切 panel 会导致 tab 不显示、body 回退到 files）。
+- Esc 经 `onPanelHide('search')` 移除面板，等价于视图菜单再次 toggle 掉搜索。
+
+### H.3 验证
+
+- 全量测试 **316 条通过**（41 个测试文件），`npm run build` 通过。
+- 新增/更新测试：`Sidebar.test.tsx` 改为验证「按可见集合渲染 tab」「隐藏当前面板回退」「右键请求 show」「Esc 请求 hide」；`SearchPanel.test.tsx` +4（输入框 Esc、document Esc、非 Esc 键不关、defaultPrevented 让位）；`App.test.tsx` 的两个 view 测试改为验证 add/remove toggle 与「至少一个面板」不变量。
+
+### H.4 仍未完成
+
+- 视图菜单项无勾选标记（无法从菜单直接看出哪些面板当前可见，需看侧栏 tab）；要做需新增菜单状态同步 IPC 并动态重建原生菜单。
+- 面板可见性不持久化，重启应用回到默认（文件 + 大纲）。

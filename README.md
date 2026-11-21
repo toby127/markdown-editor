@@ -20,6 +20,7 @@ A desktop Markdown editor built with Electron, React, and TipTap. It uses Typora
 - **Rich Markdown** — GFM tables, images, task lists, and fenced code blocks with syntax highlighting
 - **Workspace index** — full-text search, a Front Matter tag index, and wiki backlinks across every `.md` file in the workspace
 - **Wiki links** — `[[Target|Alias]]` atoms resolve by filename or path; click to open, with a backlinks panel for incoming and outgoing references
+- **In-document find & replace** — Ctrl+F floating bar with live match highlighting, next/previous navigation, case-sensitive and whole-word options, and replace/replace-all
 - **Documents and navigation** — file tree, tabs, outline with stable anchors, clickable TOC and footnote jumps, plus recent files and folders
 - **Paragraph and Format menus** — math blocks, YAML front matter, footnotes, table of contents, HTML blocks, superscript/subscript, and highlight (`==x==`); edits round-trip back to source Markdown
 - **Export** — self-contained HTML and PDF with syntax-highlighted code blocks and heading IDs that match the generated TOC

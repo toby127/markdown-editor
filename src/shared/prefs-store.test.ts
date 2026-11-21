@@ -2,14 +2,27 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { SIDEBAR_WIDTH_DEFAULT } from './prefs'
+import { SIDEBAR_WIDTH_DEFAULT, type AppPrefs } from './prefs'
 import {
   loadPrefsFromFile,
   prefsFilePath,
   savePrefsToFile,
+  withFocusMode,
   withSidebarWidth,
+  withSpellcheck,
+  withTheme,
+  withTypewriterMode,
   withWindowBounds
 } from './prefs-store'
+
+const DEFAULT_EXPECTED: AppPrefs = {
+  sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
+  windowBounds: null,
+  theme: 'light',
+  focusMode: false,
+  typewriterMode: false,
+  spellcheck: true
+}
 
 describe('prefsFilePath', () => {
   it('places prefs.json under userData', () => {
@@ -27,16 +40,13 @@ describe('loadPrefsFromFile / savePrefsToFile', () => {
   it('returns defaults when file is missing', () => {
     dir = mkdtempSync(join(tmpdir(), 'prefs-store-'))
     const path = prefsFilePath(dir)
-    expect(loadPrefsFromFile(path)).toEqual({
-      sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
-      windowBounds: null
-    })
+    expect(loadPrefsFromFile(path)).toEqual(DEFAULT_EXPECTED)
   })
 
-  it('round-trips sidebar width and window bounds as JSON', () => {
+  it('round-trips all prefs as JSON', () => {
     dir = mkdtempSync(join(tmpdir(), 'prefs-store-'))
     const path = prefsFilePath(dir)
-    const prefs = {
+    const prefs: AppPrefs = {
       sidebarWidth: 300,
       windowBounds: {
         x: 10,
@@ -44,7 +54,11 @@ describe('loadPrefsFromFile / savePrefsToFile', () => {
         width: 800,
         height: 600,
         isMaximized: true
-      }
+      },
+      theme: 'dark',
+      focusMode: true,
+      typewriterMode: true,
+      spellcheck: false
     }
     savePrefsToFile(path, prefs)
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(prefs)
@@ -55,23 +69,27 @@ describe('loadPrefsFromFile / savePrefsToFile', () => {
     dir = mkdtempSync(join(tmpdir(), 'prefs-store-'))
     const path = prefsFilePath(dir)
     writeFileSync(path, '{not-json', 'utf8')
-    expect(loadPrefsFromFile(path)).toEqual({
-      sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
-      windowBounds: null
-    })
+    expect(loadPrefsFromFile(path)).toEqual(DEFAULT_EXPECTED)
+  })
+
+  it('loads older JSON without new prefs fields', () => {
+    dir = mkdtempSync(join(tmpdir(), 'prefs-store-'))
+    const path = prefsFilePath(dir)
+    writeFileSync(path, JSON.stringify({ sidebarWidth: 250, windowBounds: null }), 'utf8')
+    expect(loadPrefsFromFile(path)).toEqual({ ...DEFAULT_EXPECTED, sidebarWidth: 250 })
   })
 })
 
 describe('withSidebarWidth / withWindowBounds', () => {
+  const base: AppPrefs = { ...DEFAULT_EXPECTED }
+
   it('clamps sidebar width updates', () => {
-    const base = { sidebarWidth: 220, windowBounds: null }
     expect(withSidebarWidth(base, 50).sidebarWidth).toBe(160)
     expect(withSidebarWidth(base, 500).sidebarWidth).toBe(480)
     expect(withSidebarWidth(base, 275).sidebarWidth).toBe(275)
   })
 
   it('normalizes window bounds updates', () => {
-    const base = { sidebarWidth: 220, windowBounds: null }
     const next = withWindowBounds(base, {
       x: 1.2,
       y: 3.8,
@@ -86,5 +104,28 @@ describe('withSidebarWidth / withWindowBounds', () => {
       height: 481,
       isMaximized: false
     })
+  })
+})
+
+describe('writing mode / theme pref updaters', () => {
+  const base: AppPrefs = { ...DEFAULT_EXPECTED }
+
+  it('withTheme only accepts dark/light', () => {
+    expect(withTheme(base, 'dark').theme).toBe('dark')
+    expect(withTheme(base, 'light').theme).toBe('light')
+    expect(withTheme(base, 'neon').theme).toBe('light')
+  })
+
+  it('withFocusMode / withTypewriterMode only accept booleans', () => {
+    expect(withFocusMode(base, true).focusMode).toBe(true)
+    expect(withFocusMode(base, 'yes').focusMode).toBe(false)
+    expect(withTypewriterMode(base, true).typewriterMode).toBe(true)
+    expect(withTypewriterMode(base, 1).typewriterMode).toBe(false)
+  })
+
+  it('withSpellcheck defaults to on for invalid values', () => {
+    expect(withSpellcheck(base, false).spellcheck).toBe(false)
+    expect(withSpellcheck(base, true).spellcheck).toBe(true)
+    expect(withSpellcheck(base, 'yes').spellcheck).toBe(true)
   })
 })

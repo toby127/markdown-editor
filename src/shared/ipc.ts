@@ -1,4 +1,5 @@
 import type { DirEntry } from './fs-types'
+import type { AppPrefs } from './prefs'
 
 export const IpcChannels = {
   newFile: 'file:new',
@@ -21,6 +22,8 @@ export const IpcChannels = {
   abortClose: 'window:abortClose',
   getSidebarWidth: 'prefs:getSidebarWidth',
   setSidebarWidth: 'prefs:setSidebarWidth',
+  getPrefs: 'prefs:getPrefs',
+  setPrefs: 'prefs:setPrefs',
   exportHtml: 'export:html',
   exportPdf: 'export:pdf',
   scanTags: 'workspace:scanTags',
@@ -85,6 +88,19 @@ export type MenuActionName =
   | 'exportPdf'
   | 'openRecent'
   | 'clearRecents'
+  // view (sidebar panel switching)
+  | 'viewFiles'
+  | 'viewOutline'
+  | 'viewTags'
+  | 'viewBacklinks'
+  // modules (writing modes / theme / spellcheck toggles)
+  | 'toggleFocusMode'
+  | 'toggleTypewriterMode'
+  | 'toggleTheme'
+  | 'toggleSpellcheck'
+  // document find & replace
+  | 'find'
+  | 'findReplace'
   // paragraph
   | 'paragraph'
   | 'heading1'
@@ -138,6 +154,15 @@ export type MenuAction = {
 export type MenuSyncState = {
   recents: { path: string; kind: 'file' | 'directory' }[]
   workspaceRoot: string | null
+  /** Sidebar panels currently visible; drives checkmarks in the View menu. */
+  visiblePanels?: string[]
+  /** Writing-mode / theme / spellcheck prefs; drives checkmarks in the 外观 menu. */
+  appearancePrefs?: {
+    focusMode: boolean
+    typewriterMode: boolean
+    theme: string
+    spellcheck: boolean
+  }
 }
 
 export type ConfirmSaveResult = 'save' | 'discard' | 'cancel'
@@ -163,6 +188,8 @@ export type MarkdownEditorApi = {
   abortClose: () => Promise<void>
   getSidebarWidth: () => Promise<number>
   setSidebarWidth: (width: number) => Promise<number>
+  getPrefs: () => Promise<AppPrefs>
+  setPrefs: (patch: Partial<AppPrefs>) => Promise<AppPrefs>
   exportHtml: (req: ExportRequest) => Promise<ExportResult>
   exportPdf: (req: ExportRequest) => Promise<ExportResult>
   scanTags: (root: string) => Promise<WorkspaceTagsResult>

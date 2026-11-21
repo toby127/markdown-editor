@@ -11,6 +11,9 @@ type EditorStubProps = {
   content: string
   onChangeMarkdown: (md: string) => void
   onDirty?: () => void
+  onStats?: (stats: unknown) => void
+  focusMode?: boolean
+  typewriterMode?: boolean
 }
 
 let latestEditorProps: EditorStubProps | null = null
@@ -108,6 +111,23 @@ describe('App file workflow', () => {
       syncMenuState: vi.fn(async () => undefined),
       getSidebarWidth: vi.fn(async () => 220),
       setSidebarWidth: vi.fn(async (width: number) => width),
+      getPrefs: vi.fn(async () => ({
+        sidebarWidth: 220,
+        windowBounds: null,
+        theme: 'light' as const,
+        focusMode: false,
+        typewriterMode: false,
+        spellcheck: true
+      })),
+      setPrefs: vi.fn(async (patch) => ({
+        sidebarWidth: 220,
+        windowBounds: null,
+        theme: 'light' as const,
+        focusMode: false,
+        typewriterMode: false,
+        spellcheck: true,
+        ...patch
+      })),
       exportHtml: vi.fn(async () => ({ ok: false as const, canceled: true as const })),
       exportPdf: vi.fn(async () => ({ ok: false as const, canceled: true as const })),
       scanTags: vi.fn(async () => ({ ok: true as const, files: [] })),
@@ -752,7 +772,9 @@ describe('App file workflow', () => {
     await renderApp()
     expect(api.syncMenuState).toHaveBeenCalledWith({
       recents: [],
-      workspaceRoot: null
+      workspaceRoot: null,
+      visiblePanels: ['files', 'outline'],
+      appearancePrefs: { focusMode: false, typewriterMode: false, theme: 'light', spellcheck: true }
     })
     await act(async () => {
       menuHandler?.({ action: 'openFolder' })
@@ -760,7 +782,9 @@ describe('App file workflow', () => {
     })
     expect(api.syncMenuState).toHaveBeenCalledWith({
       recents: [{ path: '/proj', kind: 'directory' }],
-      workspaceRoot: '/proj'
+      workspaceRoot: '/proj',
+      visiblePanels: ['files', 'outline'],
+      appearancePrefs: { focusMode: false, typewriterMode: false, theme: 'light', spellcheck: true }
     })
   })
 
@@ -860,6 +884,65 @@ describe('App file workflow', () => {
     })
     expect(applyEditorMenuActionMock).toHaveBeenCalled()
     expect(applyEditorMenuActionMock.mock.calls.at(-1)?.[1]).toBe('bold')
+  })
+
+  it('view menu actions toggle panel visibility (add a tab, then remove it)', async () => {
+    await renderApp()
+    const tabs = () => Array.from(container.querySelectorAll('[role="tab"]')).map((t) => t.textContent)
+
+    // Default: files + outline tabs, files active.
+    expect(tabs()).toEqual(['文件', '大纲'])
+    expect(container.querySelector('.sidebar-panel-files')).toBeTruthy()
+
+    // First click adds the tags panel (a new tab) and activates it.
+    await act(async () => {
+      menuHandler?.({ action: 'viewTags' })
+      await Promise.resolve()
+    })
+    expect(tabs()).toEqual(['文件', '大纲', '标签'])
+    expect(container.querySelector('.sidebar-panel-tags')).toBeTruthy()
+    // Updated visibility is pushed back so the native View menu checkmark follows.
+    expect(api.syncMenuState).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visiblePanels: ['files', 'outline', 'tags'] })
+    )
+
+    // Second click removes it again.
+    await act(async () => {
+      menuHandler?.({ action: 'viewTags' })
+      await Promise.resolve()
+    })
+    expect(tabs()).toEqual(['文件', '大纲'])
+    expect(container.querySelector('.sidebar-panel-tags')).toBeNull()
+
+    // Backlinks follows the same add/remove toggle.
+    await act(async () => {
+      menuHandler?.({ action: 'viewBacklinks' })
+      await Promise.resolve()
+    })
+    expect(tabs()).toEqual(['文件', '大纲', '反链'])
+    expect(container.querySelector('.sidebar-panel-links')).toBeTruthy()
+
+    await act(async () => {
+      menuHandler?.({ action: 'viewBacklinks' })
+      await Promise.resolve()
+    })
+    expect(tabs()).toEqual(['文件', '大纲'])
+  })
+
+  it('keeps at least one panel visible when toggling the last one off', async () => {
+    await renderApp()
+    const tabs = () => Array.from(container.querySelectorAll('[role="tab"]')).map((t) => t.textContent)
+
+    await act(async () => {
+      menuHandler?.({ action: 'viewOutline' })
+      await Promise.resolve()
+    })
+    await act(async () => {
+      menuHandler?.({ action: 'viewFiles' })
+      await Promise.resolve()
+    })
+    // Both default panels hidden: the last one is kept, so sidebar never goes empty.
+    expect(tabs().length).toBeGreaterThanOrEqual(1)
   })
 
   it('ignores editor menu actions when getEditor returns null', async () => {
@@ -1223,6 +1306,121 @@ describe('App file workflow', () => {
       await Promise.resolve()
     })
     expect(api.setSidebarWidth).toHaveBeenCalledWith(160)
+  })
+
+  it('loads writing prefs, applies theme, and persists status-bar toggles', async () => {
+    vi.mocked(api.getPrefs).mockResolvedValue({
+      sidebarWidth: 220,
+      windowBounds: null,
+      theme: 'dark',
+      focusMode: true,
+      typewriterMode: false,
+      spellcheck: false
+    })
+    vi.mocked(api.openFile).mockResolvedValue({
+      ok: true,
+      path: '/tmp/writing.md',
+      content: '# Hello\n'
+    })
+    vi.mocked(api.listDir).mockResolvedValue({ ok: true, entries: [] })
+    await renderApp()
+    await act(async () => {
+      menuHandler?.({ action: 'open' })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // Loaded theme is applied to the document root.
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    // Loaded writing modes are forwarded to the editor stub.
+    expect(latestEditorProps?.focusMode).toBe(true)
+    expect(latestEditorProps?.typewriterMode).toBe(false)
+
+    const actions = container.querySelectorAll('.status-bar-action')
+    expect(actions.length).toBe(3)
+
+    // Focus toggle flips its active state and persists.
+    const focusBtn = actions[0] as HTMLButtonElement
+    expect(focusBtn.classList.contains('is-active')).toBe(true)
+    await act(async () => {
+      focusBtn.click()
+      await Promise.resolve()
+    })
+    expect(api.setPrefs).toHaveBeenCalledWith({ focusMode: false })
+
+    // Theme toggle switches root attribute and persists.
+    const themeBtn = actions[2] as HTMLButtonElement
+    await act(async () => {
+      themeBtn.click()
+      await Promise.resolve()
+    })
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(api.setPrefs).toHaveBeenCalledWith({ theme: 'light' })
+
+    // Reset for other suites.
+    document.documentElement.dataset.theme = 'light'
+  })
+
+  it('外观 menu actions toggle prefs and re-sync checkmarks to main', async () => {
+    await renderApp()
+
+    // Spellcheck toggle via the menu toggles the pref (default true -> false).
+    await act(async () => {
+      menuHandler?.({ action: 'toggleSpellcheck' })
+      await Promise.resolve()
+    })
+    expect(api.setPrefs).toHaveBeenCalledWith({ spellcheck: false })
+
+    // Focus mode toggle via the menu (default false -> true).
+    await act(async () => {
+      menuHandler?.({ action: 'toggleFocusMode' })
+      await Promise.resolve()
+    })
+    expect(api.setPrefs).toHaveBeenCalledWith({ focusMode: true })
+
+    // The synced menu state now reflects the toggled values.
+    expect(api.syncMenuState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appearancePrefs: expect.objectContaining({ spellcheck: false, focusMode: true })
+      })
+    )
+  })
+
+  it('resets status-bar stats to zero after the last document is closed', async () => {
+    vi.mocked(api.openFile).mockResolvedValue({
+      ok: true,
+      path: '/tmp/long-doc.md',
+      content: '# long doc\n'
+    })
+    await renderApp()
+    await act(async () => {
+      menuHandler?.({ action: 'open' })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // Editor reports non-zero stats for the open document.
+    await act(async () => {
+      latestEditorProps?.onStats?.({ words: 1301, characters: 8000, lines: 127, readingMinutes: 5 })
+      await Promise.resolve()
+    })
+    const statsBtn = container.querySelector('.status-bar-stats') as HTMLButtonElement
+    expect(statsBtn.textContent).toContain('1301 字')
+
+    // Close the only open tab.
+    const closeBtn = container.querySelector('[aria-label^="关闭 "]') as HTMLButtonElement
+    expect(closeBtn).toBeTruthy()
+    await act(async () => {
+      closeBtn.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // Empty editor must show zero, not stale stats from the closed document.
+    expect(container.querySelector('[data-testid="editor"]')).toBeNull()
+    const statsAfter = container.querySelector('.status-bar-stats') as HTMLButtonElement
+    expect(statsAfter.textContent).toContain('0 字 · 0 行 · 约 0 分钟')
+    expect(statsAfter.textContent).not.toContain('1301')
   })
 
 })

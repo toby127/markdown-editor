@@ -4,6 +4,7 @@ import {
   dialog,
   ipcMain,
   Menu,
+  nativeTheme,
   screen,
   type BrowserWindowConstructorOptions,
   type MenuItemConstructorOptions
@@ -33,9 +34,16 @@ import {
 import { scanWorkspaceTags } from './workspace-tags'
 import { buildWorkspaceIndex } from './workspace-index'
 import {
+  APP_MENU_APPEARANCE_LABEL,
   APP_MENU_EDIT_LABEL,
   APP_MENU_FILE_LABEL,
-  buildEditMenuSubmenuItems
+  APP_MENU_VIEW_LABEL,
+  buildAppearanceMenuSubmenuItems,
+  buildEditMenuSubmenuItems,
+  buildViewMenuSubmenuItems,
+  type AppearanceMenuActionItem,
+  type EditMenuSubmenuItem,
+  type ViewMenuActionItem
 } from '../src/shared/app-menu-chrome'
 import { buildFileMenuSpecs, type FileMenuItemSpec } from '../src/shared/file-menu'
 import {
@@ -56,7 +64,11 @@ import {
   loadPrefsFromFile,
   prefsFilePath,
   savePrefsToFile,
+  withFocusMode,
   withSidebarWidth,
+  withSpellcheck,
+  withTheme,
+  withTypewriterMode,
   withWindowBounds
 } from '../src/shared/prefs-store'
 
@@ -76,8 +88,18 @@ let closePromptOpen = false
 
 let menuRecents: RecentEntry[] = []
 let menuWorkspaceRoot: string | null = null
+let menuVisiblePanels: string[] = []
+/** Mirrors writing prefs in the main process so the 外观 menu can render checkmarks. */
+let menuAppearancePrefs = { focusMode: false, typewriterMode: false, theme: 'light', spellcheck: true }
 
-let appPrefs: AppPrefs = { sidebarWidth: SIDEBAR_WIDTH_DEFAULT, windowBounds: null }
+let appPrefs: AppPrefs = {
+  sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
+  windowBounds: null,
+  theme: 'light',
+  focusMode: false,
+  typewriterMode: false,
+  spellcheck: true
+}
 let prefsPath = ''
 let saveBoundsTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -90,6 +112,23 @@ function getPrefsPath(): string {
 
 function loadAppPrefs(): void {
   appPrefs = loadPrefsFromFile(getPrefsPath())
+  applyNativeTheme(appPrefs.theme)
+  syncAppearancePrefsFromAppPrefs()
+}
+
+/** Keep native (system-drawn) menus and title bar in sync with the app theme. */
+function applyNativeTheme(theme: string): void {
+  nativeTheme.themeSource = theme === 'dark' ? 'dark' : 'light'
+}
+
+/** Mirror the persisted writing prefs into the menu-state object. */
+function syncAppearancePrefsFromAppPrefs(): void {
+  menuAppearancePrefs = {
+    focusMode: appPrefs.focusMode,
+    typewriterMode: appPrefs.typewriterMode,
+    theme: appPrefs.theme,
+    spellcheck: appPrefs.spellcheck
+  }
 }
 
 function persistAppPrefs(): void {
@@ -153,6 +192,38 @@ function specToTemplate(spec: MenuItemSpec): MenuItemConstructorOptions {
   }
 }
 
+function editItemToTemplate(item: EditMenuSubmenuItem): MenuItemConstructorOptions {
+  if ('type' in item) return { type: 'separator' }
+  if ('action' in item) {
+    // Custom find actions are routed to the renderer; they are not Electron roles.
+    return {
+      label: item.label,
+      accelerator: item.accelerator,
+      click: () => sendMenuAction({ action: item.action })
+    }
+  }
+  return { role: item.role, label: item.label }
+}
+
+function viewItemToTemplate(item: ViewMenuActionItem): MenuItemConstructorOptions {
+  return {
+    label: item.label,
+    type: 'checkbox',
+    checked: menuVisiblePanels.includes(item.panel),
+    click: () => sendMenuAction({ action: item.action })
+  }
+}
+
+function appearanceItemToTemplate(item: AppearanceMenuActionItem): MenuItemConstructorOptions {
+  const value = menuAppearancePrefs[item.prefsKey]
+  return {
+    label: item.label,
+    type: 'checkbox',
+    checked: item.checkedWhen === 'dark' ? value === 'dark' : value === true,
+    click: () => sendMenuAction({ action: item.action })
+  }
+}
+
 function buildAppMenu(): Menu {
   const fileSubmenu = buildFileMenuSpecs({
     workspaceRoot: menuWorkspaceRoot,
@@ -161,10 +232,15 @@ function buildAppMenu(): Menu {
 
   const paragraphSubmenu = buildParagraphMenuSpecs().map(specToTemplate)
   const formatSubmenu = buildFormatMenuSpecs().map(specToTemplate)
+  const editSubmenu = buildEditMenuSubmenuItems().map(editItemToTemplate)
+  const viewSubmenu = buildViewMenuSubmenuItems().map(viewItemToTemplate)
+  const appearanceSubmenu = buildAppearanceMenuSubmenuItems().map(appearanceItemToTemplate)
 
   return Menu.buildFromTemplate([
     { label: APP_MENU_FILE_LABEL, submenu: fileSubmenu },
-    { label: APP_MENU_EDIT_LABEL, submenu: buildEditMenuSubmenuItems() },
+    { label: APP_MENU_EDIT_LABEL, submenu: editSubmenu },
+    { label: APP_MENU_VIEW_LABEL, submenu: viewSubmenu },
+    { label: APP_MENU_APPEARANCE_LABEL, submenu: appearanceSubmenu },
     { label: '段落', submenu: paragraphSubmenu },
     { label: '格式', submenu: formatSubmenu }
   ])
@@ -173,6 +249,8 @@ function buildAppMenu(): Menu {
 function applyMenuState(state: MenuSyncState): void {
   menuRecents = state.recents
   menuWorkspaceRoot = state.workspaceRoot
+  menuVisiblePanels = state.visiblePanels ?? []
+  if (state.appearancePrefs) menuAppearancePrefs = state.appearancePrefs
   Menu.setApplicationMenu(buildAppMenu())
 }
 
@@ -237,7 +315,8 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      spellcheck: appPrefs.spellcheck
     }
   }
 
@@ -525,6 +604,33 @@ function registerFileHandlers(): void {
       appPrefs = withSidebarWidth(appPrefs, width)
       persistAppPrefs()
       return appPrefs.sidebarWidth
+    }
+  )
+
+  ipcMain.handle(IpcChannels.getPrefs, async () => appPrefs)
+
+  ipcMain.handle(
+    IpcChannels.setPrefs,
+    async (_event, patch: Partial<AppPrefs>): Promise<AppPrefs> => {
+      if (!patch || typeof patch !== 'object') return appPrefs
+      if ('sidebarWidth' in patch) appPrefs = withSidebarWidth(appPrefs, patch.sidebarWidth)
+      if ('windowBounds' in patch) appPrefs = withWindowBounds(appPrefs, patch.windowBounds)
+      if ('theme' in patch) {
+        appPrefs = withTheme(appPrefs, patch.theme)
+        applyNativeTheme(appPrefs.theme)
+      }
+      if ('focusMode' in patch) appPrefs = withFocusMode(appPrefs, patch.focusMode)
+      if ('typewriterMode' in patch) appPrefs = withTypewriterMode(appPrefs, patch.typewriterMode)
+      if ('spellcheck' in patch) {
+        appPrefs = withSpellcheck(appPrefs, patch.spellcheck)
+        // Toggle the red squiggles live without recreating the window.
+        mainWindow?.webContents.session.setSpellCheckerEnabled(appPrefs.spellcheck)
+      }
+      syncAppearancePrefsFromAppPrefs()
+      persistAppPrefs()
+      // Rebuild now so native menu checkmarks update even before the renderer re-syncs.
+      Menu.setApplicationMenu(buildAppMenu())
+      return appPrefs
     }
   )
 

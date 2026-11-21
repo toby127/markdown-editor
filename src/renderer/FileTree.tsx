@@ -13,6 +13,8 @@ export type FileTreeProps = {
   onCreateEntry?: (parentPath: string, name: string, kind: 'file' | 'directory') => void
   onRenameEntry?: (path: string, newName: string) => void
   onDeleteEntry?: (path: string) => void
+  /** Open the workspace search panel from the context menu. */
+  onSearchRequest?: () => void
   selectedPath?: string | null
   refreshToken?: number
 }
@@ -162,6 +164,7 @@ export default function FileTree({
   onCreateEntry,
   onRenameEntry,
   onDeleteEntry,
+  onSearchRequest,
   selectedPath = null,
   refreshToken = 0
 }: FileTreeProps): JSX.Element {
@@ -270,6 +273,15 @@ export default function FileTree({
     if (!menu || !root) return []
     const items: ContextMenuItem[] = []
 
+    if (onSearchRequest) {
+      items.push({
+        id: 'search-files',
+        label: '搜索文件',
+        onSelect: () => onSearchRequest()
+      })
+      items.push({ id: 'search-separator', separator: true } as ContextMenuItem)
+    }
+
     if (menu.kind === 'blank' || menu.kind === 'root' || menu.kind === 'directory') {
       if (onCreateEntry) {
         const parent =
@@ -319,7 +331,7 @@ export default function FileTree({
     }
 
     return items
-  }, [menu, root, onCreateEntry, onRenameEntry, onDeleteEntry, onRefreshRequest, createWithPrompt])
+  }, [menu, root, onCreateEntry, onRenameEntry, onDeleteEntry, onRefreshRequest, createWithPrompt, onSearchRequest])
 
   if (!root) {
     return (

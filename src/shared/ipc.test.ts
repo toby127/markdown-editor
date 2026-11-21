@@ -35,6 +35,8 @@ describe('IpcChannels', () => {
       abortClose: 'window:abortClose',
       getSidebarWidth: 'prefs:getSidebarWidth',
       setSidebarWidth: 'prefs:setSidebarWidth',
+      getPrefs: 'prefs:getPrefs',
+      setPrefs: 'prefs:setPrefs',
       exportHtml: 'export:html',
       exportPdf: 'export:pdf',
       scanTags: 'workspace:scanTags',
@@ -100,6 +102,21 @@ describe('MarkdownEditorApi type surface', () => {
       abortClose: async () => undefined,
       getSidebarWidth: async () => 220,
       setSidebarWidth: async (_width: number) => 220,
+      getPrefs: async () => ({
+        sidebarWidth: 220,
+        windowBounds: null,
+        theme: 'light' as const,
+        focusMode: false,
+        typewriterMode: false
+      }),
+      setPrefs: async (patch) => ({
+        sidebarWidth: 220,
+        windowBounds: null,
+        theme: 'light' as const,
+        focusMode: false,
+        typewriterMode: false,
+        ...patch
+      }),
       exportHtml: async (_req: ExportRequest) => ({ ok: false as const, canceled: true as const }),
       exportPdf: async (_req: ExportRequest) => ({ ok: false as const, canceled: true as const }),
       scanTags: async (_root: string) => ({ ok: true as const, files: [] })

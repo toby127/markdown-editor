@@ -22,11 +22,14 @@ import {
 } from '../shared/recents'
 import {
   SIDEBAR_WIDTH_DEFAULT,
-  clampSidebarWidth
+  clampSidebarWidth,
+  type Theme
 } from '../shared/prefs'
 import Editor, { type EditorHandle } from './Editor'
-import Sidebar from './Sidebar'
+import Sidebar, { PANEL_ORDER, type SidebarPanel } from './Sidebar'
 import TabBar from './TabBar'
+import StatusBar from './StatusBar'
+import { EMPTY_STATS, type WordStats } from '../shared/word-count'
 
 const INITIAL_MARKDOWN = ''
 
@@ -88,12 +91,22 @@ export default function App(): JSX.Element {
     parseRecentsJson(localStorage.getItem(RECENTS_STORAGE_KEY))
   )
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_WIDTH_DEFAULT)
+  // View menu toggles panel visibility; the sidebar shows a tab per visible panel.
+  const [visiblePanels, setVisiblePanels] = useState<SidebarPanel[]>(['files', 'outline'])
+  const [sidebarPanel, setSidebarPanel] = useState<SidebarPanel>('files')
   const [indexFiles, setIndexFiles] = useState<IndexedFile[]>([])
   const [indexError, setIndexError] = useState<string | null>(null)
   const [indexScanning, setIndexScanning] = useState(false)
+  const [wordStats, setWordStats] = useState<WordStats>({ ...EMPTY_STATS })
+  const [theme, setTheme] = useState<Theme>('light')
+  const [focusMode, setFocusMode] = useState(false)
+  const [typewriterMode, setTypewriterMode] = useState(false)
+  const [spellcheck, setSpellcheck] = useState(true)
 
   const tabsRef = useRef(tabs)
   const activeTabIdRef = useRef(activeTabId)
+  const themeRef = useRef(theme)
+  themeRef.current = theme
   const handlingCloseRef = useRef(false)
   const editorRef = useRef<EditorHandle>(null)
   const sidebarWidthRef = useRef(sidebarWidth)
@@ -113,6 +126,55 @@ export default function App(): JSX.Element {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // Load writing-mode + theme prefs from main.
+  useEffect(() => {
+    let cancelled = false
+    void window.api.getPrefs().then((prefs) => {
+      if (cancelled) return
+      setTheme(prefs.theme)
+      setFocusMode(prefs.focusMode)
+      setTypewriterMode(prefs.typewriterMode)
+      setSpellcheck(prefs.spellcheck)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Apply theme to the document root so the [data-theme='dark'] CSS kicks in.
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+  }, [theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next: Theme = prev === 'dark' ? 'light' : 'dark'
+      void window.api.setPrefs({ theme: next })
+      return next
+    })
+  }, [])
+  const toggleFocusMode = useCallback(() => {
+    setFocusMode((prev) => {
+      const next = !prev
+      void window.api.setPrefs({ focusMode: next })
+      return next
+    })
+  }, [])
+  const toggleTypewriterMode = useCallback(() => {
+    setTypewriterMode((prev) => {
+      const next = !prev
+      void window.api.setPrefs({ typewriterMode: next })
+      return next
+    })
+  }, [])
+  const toggleSpellcheck = useCallback(() => {
+    setSpellcheck((prev) => {
+      const next = !prev
+      void window.api.setPrefs({ spellcheck: next })
+      return next
+    })
   }, [])
 
   const handleSplitterPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -153,9 +215,19 @@ export default function App(): JSX.Element {
     localStorage.setItem(RECENTS_STORAGE_KEY, serializeRecents(recents))
   }, [recents])
 
+  const recentsRef = useRef(recents)
+  recentsRef.current = recents
+  const workspaceRootRef = useRef(workspaceRoot)
+  workspaceRootRef.current = workspaceRoot
+
   useEffect(() => {
-    void window.api.syncMenuState({ recents, workspaceRoot })
-  }, [recents, workspaceRoot])
+    void window.api.syncMenuState({
+      recents,
+      workspaceRoot,
+      visiblePanels,
+      appearancePrefs: { focusMode, typewriterMode, theme, spellcheck }
+    })
+  }, [recents, workspaceRoot, visiblePanels, focusMode, typewriterMode, theme, spellcheck])
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0]
 
@@ -458,7 +530,7 @@ export default function App(): JSX.Element {
     if (!tab) return
     const bodyHtml = markdownToHtml(tab.content)
     const docTitle = tab.title.replace(/\.(md|markdown)$/i, '') || 'document'
-    const html = buildExportHtml(bodyHtml, docTitle)
+    const html = buildExportHtml(bodyHtml, docTitle, themeRef.current)
     const req = { suggestedName: docTitle, html }
     const result =
       kind === 'html'
@@ -689,6 +761,47 @@ export default function App(): JSX.Element {
     }
   }, [resolveDirtyTab])
 
+  // A ref keeps the latest visibility in sync so menu callbacks (registered once)
+  // never act on a stale snapshot. Order stays stable via PANEL_ORDER.
+  const visiblePanelsRef = useRef(visiblePanels)
+  visiblePanelsRef.current = visiblePanels
+
+  const setPanelVisible = useCallback((panel: SidebarPanel, visible: boolean) => {
+    const current = visiblePanelsRef.current
+    const has = current.includes(panel)
+    if (visible === has) {
+      if (visible) setSidebarPanel(panel)
+      return
+    }
+    if (!visible) {
+      // Keep at least one panel visible — an empty sidebar has no tabs to switch back.
+      if (current.length === 1) return
+      const next = current.filter((p) => p !== panel)
+      visiblePanelsRef.current = next
+      setVisiblePanels(next)
+      setSidebarPanel((active) => (active === panel ? next[0] : active))
+    } else {
+      const next = PANEL_ORDER.filter((p) => p === panel || current.includes(p))
+      visiblePanelsRef.current = next
+      setVisiblePanels(next)
+      setSidebarPanel(panel)
+    }
+  }, [])
+
+  const togglePanel = useCallback(
+    (panel: SidebarPanel) => {
+      setPanelVisible(panel, !visiblePanelsRef.current.includes(panel))
+      // Push the post-toggle visibility back so the native View menu checkmarks
+      // match the real state, even if Electron auto-flipped the clicked checkbox.
+      void window.api.syncMenuState({
+        recents: recentsRef.current,
+        workspaceRoot: workspaceRootRef.current,
+        visiblePanels: visiblePanelsRef.current
+      })
+    },
+    [setPanelVisible]
+  )
+
   useEffect(() => {
     const unsubscribe = window.api.onMenuAction((msg: MenuAction) => {
       switch (msg.action) {
@@ -728,6 +841,36 @@ export default function App(): JSX.Element {
         case 'clearRecents':
           handleClearRecents()
           break
+        case 'viewFiles':
+          togglePanel('files')
+          break
+        case 'viewOutline':
+          togglePanel('outline')
+          break
+        case 'viewTags':
+          togglePanel('tags')
+          break
+        case 'viewBacklinks':
+          togglePanel('links')
+          break
+        case 'toggleFocusMode':
+          toggleFocusMode()
+          break
+        case 'toggleTypewriterMode':
+          toggleTypewriterMode()
+          break
+        case 'toggleTheme':
+          toggleTheme()
+          break
+        case 'toggleSpellcheck':
+          toggleSpellcheck()
+          break
+        case 'find':
+          editorRef.current?.openFind('find')
+          break
+        case 'findReplace':
+          editorRef.current?.openFind('replace')
+          break
         default: {
           if (EDITOR_MENU_ACTIONS.has(msg.action)) {
             const ed = editorRef.current?.getEditor() ?? null
@@ -749,7 +892,12 @@ export default function App(): JSX.Element {
     handleSaveAs,
     handleExport,
     handleOpenRecent,
-    handleClearRecents
+    handleClearRecents,
+    togglePanel,
+    toggleFocusMode,
+    toggleTypewriterMode,
+    toggleTheme,
+    toggleSpellcheck
   ])
 
   useEffect(() => {
@@ -804,6 +952,11 @@ export default function App(): JSX.Element {
           indexError={indexError}
           indexScanning={indexScanning}
           onRefreshIndex={() => void buildIndexFor(workspaceRoot)}
+          visiblePanels={visiblePanels}
+          panel={sidebarPanel}
+          onPanelChange={setSidebarPanel}
+          onPanelHide={(p) => setPanelVisible(p, false)}
+          onPanelShow={(p) => setPanelVisible(p, true)}
         />
         <div
           className="sidebar-splitter"
@@ -833,6 +986,9 @@ export default function App(): JSX.Element {
               onChangeMarkdown={handleChangeMarkdown}
               onDirty={handleDirty}
               onWikiLink={handleWikiLink}
+              onStats={setWordStats}
+              focusMode={focusMode}
+              typewriterMode={typewriterMode}
             />
           </>
         ) : (
@@ -850,6 +1006,34 @@ export default function App(): JSX.Element {
             </button>
           </div>
         )}
+        <StatusBar stats={activeTab ? wordStats : EMPTY_STATS}>
+          <button
+            type="button"
+            className={`status-bar-action${focusMode ? ' is-active' : ''}`}
+            aria-pressed={focusMode}
+            title="专注模式：淡化其它段落"
+            onClick={toggleFocusMode}
+          >
+            专注
+          </button>
+          <button
+            type="button"
+            className={`status-bar-action${typewriterMode ? ' is-active' : ''}`}
+            aria-pressed={typewriterMode}
+            title="打字机模式：当前行保持居中"
+            onClick={toggleTypewriterMode}
+          >
+            打字机
+          </button>
+          <button
+            type="button"
+            className="status-bar-action"
+            title={theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
+        </StatusBar>
       </div>
     </div>
   )

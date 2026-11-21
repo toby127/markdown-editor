@@ -368,6 +368,40 @@ describe('FileTree CRUD', () => {
     expect(onRefreshRequest).toHaveBeenCalledTimes(1)
   })
 
+  it('offers 搜索文件 in every context menu and calls onSearchRequest', () => {
+    const onSearchRequest = vi.fn()
+    render(
+      <FileTree
+        root="/ws"
+        onOpenFolder={vi.fn()}
+        onOpenFile={vi.fn()}
+        onRefreshRequest={vi.fn()}
+        entries={sampleEntries}
+        loadChildren={vi.fn()}
+        onSearchRequest={onSearchRequest}
+      />
+    )
+    // file row
+    fireEvent.contextMenu(screen.getByText('readme.md'))
+    expect(screen.getByRole('menuitem', { name: '搜索文件' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitem', { name: '搜索文件' }))
+    expect(onSearchRequest).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('menu')).toBeNull()
+
+    // blank area
+    fireEvent.contextMenu(screen.getByRole('tree'))
+    expect(screen.getByRole('menuitem', { name: '搜索文件' })).toBeTruthy()
+    // root row
+    fireEvent.contextMenu(screen.getByText('ws'))
+    expect(screen.getByRole('menuitem', { name: '搜索文件' })).toBeTruthy()
+  })
+
+  it('hides 搜索文件 when no onSearchRequest callback is supplied', () => {
+    renderTree()
+    fireEvent.contextMenu(screen.getByText('readme.md'))
+    expect(screen.queryByRole('menuitem', { name: '搜索文件' })).toBeNull()
+  })
+
   it('renames an entry via context menu prompt', () => {
     promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('guide.md')
     const { onRenameEntry } = renderTree()

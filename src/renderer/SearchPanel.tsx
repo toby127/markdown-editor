@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { IndexedFile } from '../shared/ipc'
 import { searchWorkspace, type SearchHit } from '../shared/workspace-search'
 
@@ -9,6 +9,8 @@ export type SearchPanelProps = {
   root: string | null
   onOpenFile: (path: string) => void
   onRefresh: () => void
+  /** Close the search panel (bound to Esc). */
+  onClose?: () => void
 }
 
 function Marked({ text, query }: { text: string; query: string }): ReactNode {
@@ -40,10 +42,26 @@ export default function SearchPanel({
   scanning,
   root,
   onOpenFile,
-  onRefresh
+  onRefresh,
+  onClose
 }: SearchPanelProps): JSX.Element {
   const [query, setQuery] = useState('')
   const results = useMemo(() => searchWorkspace(files, query), [files, query])
+  const inputRef = useRef<HTMLInputElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  // Esc closes the panel even when focus is on a result button rather than the
+  // input. The guard lets the document-internal FindBar consume Esc first when
+  // both happen to be open.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      onCloseRef.current?.()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   if (!root) {
     return <div className="tag-panel-empty">打开文件夹后可搜索工作区</div>
@@ -57,11 +75,18 @@ export default function SearchPanel({
     <div className="search-panel">
       <div className="search-head">
         <input
+          ref={inputRef}
           type="search"
           aria-label="搜索工作区"
           placeholder="搜索标题和正文…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && onClose) {
+              event.preventDefault()
+              onClose()
+            }
+          }}
         />
         <button type="button" onClick={onRefresh} disabled={scanning} title="重建索引">
           {scanning ? '扫描中' : '刷新'}

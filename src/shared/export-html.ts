@@ -11,6 +11,26 @@ import { createHeadingSlugger } from './slugger'
  * identically offline.
  */
 
+const DARK_EXPORT_CSS = `
+:root { color-scheme: dark; }
+body { color: #d4d4d4; background: #1e1e1e; }
+a { color: #58a6ff; }
+h1,h2 { border-bottom-color: #3a3a3a; }
+blockquote { color: #9a9a9a; border-left-color: #4a4a4a; }
+code { background: #2a2a2a; }
+pre { background: #2a2a2a; }
+th { background: #2a2a2a; }
+th,td { border-color: #3a3a3a; }
+hr { border-top-color: #3a3a3a; }
+.hljs-keyword,.hljs-selector-tag,.hljs-literal,.hljs-type { color: #ff7b72; }
+.hljs-string,.hljs-attr,.hljs-template-variable { color: #a5d6ff; }
+.hljs-number,.hljs-symbol,.hljs-bullet { color: #79c0ff; }
+.hljs-comment,.hljs-quote { color: #8b949e; }
+.hljs-title,.hljs-function .hljs-title,.hljs-built_in { color: #d2a8ff; }
+.hljs-variable,.hljs-params { color: #ffa657; }
+.hljs-meta { color: #79c0ff; }
+`
+
 const EXPORT_CSS = `
 :root { color-scheme: light; }
 body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -97,18 +117,19 @@ function addHeadingIds(html: string): string {
   return template.innerHTML
 }
 
-export function buildExportHtml(bodyHtml: string, title: string): string {
+export function buildExportHtml(bodyHtml: string, title: string, theme: 'light' | 'dark' = 'light'): string {
   // Defense in depth: sanitize even though bodyHtml came from the editor.
   const safe = sanitizeHtmlString(bodyHtml)
   const highlighted = addHeadingIds(highlightCodeBlocks(safe))
   const safeTitle = escapeHtml(title)
+  const css = theme === 'dark' ? EXPORT_CSS + DARK_EXPORT_CSS : EXPORT_CSS
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${safeTitle}</title>
-<style>${EXPORT_CSS}</style>
+<style>${css}</style>
 </head>
 <body>
 ${highlighted}

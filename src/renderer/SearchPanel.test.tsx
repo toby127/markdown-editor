@@ -27,7 +27,10 @@ const FILES: IndexedFile[] = [
   }
 ]
 
-function renderPanel(onOpenFile = vi.fn()): { onOpenFile: ReturnType<typeof vi.fn> } {
+function renderPanel(onOpenFile = vi.fn(), onClose = vi.fn()): {
+  onOpenFile: ReturnType<typeof vi.fn>
+  onClose: ReturnType<typeof vi.fn>
+} {
   render(
     <SearchPanel
       files={FILES}
@@ -36,9 +39,10 @@ function renderPanel(onOpenFile = vi.fn()): { onOpenFile: ReturnType<typeof vi.f
       root="/ws"
       onOpenFile={onOpenFile}
       onRefresh={() => {}}
+      onClose={onClose}
     />
   )
-  return { onOpenFile }
+  return { onOpenFile, onClose }
 }
 
 describe('SearchPanel', () => {
@@ -75,5 +79,31 @@ describe('SearchPanel', () => {
       />
     )
     expect(screen.getByText('打开文件夹后可搜索工作区')).toBeTruthy()
+  })
+
+  it('closes on Esc from the input', () => {
+    const { onClose } = renderPanel()
+    fireEvent.keyDown(screen.getByLabelText('搜索工作区'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes on Esc from anywhere in the document', () => {
+    const { onClose } = renderPanel()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not close on a non-Esc key', () => {
+    const { onClose } = renderPanel()
+    fireEvent.keyDown(document, { key: 'Enter' })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('lets another handler consume Esc first (FindBar coexistence)', () => {
+    const { onClose } = renderPanel()
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    event.preventDefault()
+    document.dispatchEvent(event)
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

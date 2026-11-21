@@ -96,6 +96,37 @@ describe('Editor', () => {
     expect(onDirty).toHaveBeenCalled()
   })
 
+  it('pushes word statistics on load and on edit', async () => {
+    const onStats = vi.fn()
+    const handle = createRef<EditorHandle>()
+
+    await act(async () => {
+      root.render(
+        <Editor
+          ref={handle}
+          content="你好世界"
+          onChangeMarkdown={() => {}}
+          onStats={onStats}
+        />
+      )
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    // Initial stats pushed from the loaded doc.
+    expect(onStats).toHaveBeenCalled()
+    const initial = onStats.mock.calls.at(-1)?.[0] as { words: number; characters: number }
+    expect(initial.words).toBe(4)
+
+    const editor = handle.current?.getEditor()
+    await act(async () => {
+      editor!.commands.setContent('hello world', true)
+    })
+    const after = onStats.mock.calls.at(-1)?.[0] as { words: number }
+    expect(after.words).toBe(2)
+  })
+
   it('toggles bold and italic via Mod-b / Mod-i', async () => {
     const handle = createRef<EditorHandle>()
 
@@ -426,5 +457,37 @@ describe('Editor', () => {
     expect(editor.state.doc.firstChild?.type.name).toBe('heading')
     expect(editor.state.doc.firstChild?.textContent).toBe('Hello')
     expect(topLevelTypes(editor)).not.toContain('markdownSource')
+  })
+
+  it('openFind opens the find bar and finds matches in the real document', async () => {
+    const handle = createRef<EditorHandle>()
+    await act(async () => {
+      root.render(<Editor ref={handle} content="alpha alpha beta" onChangeMarkdown={() => {}} />)
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    // Bar is closed until the handle (menu / Ctrl+F) requests it.
+    expect(container.querySelector('.find-bar')).toBeNull()
+    await act(async () => {
+      handle.current!.openFind('replace')
+    })
+    expect(container.querySelector('.find-bar')).not.toBeNull()
+    // Replace field is present because we opened in replace mode.
+    expect(container.querySelector('input[aria-label="替换为"]')).not.toBeNull()
+
+    const findInput = container.querySelector('input[aria-label="查找内容"]') as HTMLInputElement
+    await act(async () => {
+      // React-controlled input: fire the native value setter + input event.
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      setter.call(findInput, 'alpha')
+      findInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(container.querySelector('[data-testid="find-count"]')?.textContent).toBe('1 / 2')
+
+    await act(async () => {
+      handle.current!.closeFind()
+    })
+    expect(container.querySelector('.find-bar')).toBeNull()
   })
 })

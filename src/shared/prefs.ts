@@ -17,14 +17,33 @@ export type DisplayWorkArea = {
   height: number
 }
 
+export type Theme = 'light' | 'dark'
+
 export type AppPrefs = {
   sidebarWidth: number
   windowBounds: WindowBounds | null
+  theme: Theme
+  focusMode: boolean
+  typewriterMode: boolean
+  /** Chromium spellcheck underline; on by default to match prior behavior. */
+  spellcheck: boolean
 }
 
 const DEFAULT_PREFS: AppPrefs = {
   sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
-  windowBounds: null
+  windowBounds: null,
+  theme: 'light',
+  focusMode: false,
+  typewriterMode: false,
+  spellcheck: true
+}
+
+export function clampTheme(value: unknown): Theme {
+  return value === 'dark' ? 'dark' : 'light'
+}
+
+export function clampBool(value: unknown, fallback = false): boolean {
+  return typeof value === 'boolean' ? value : fallback
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -90,7 +109,14 @@ export function keepWindowOnScreen(
 export function serializePrefs(prefs: AppPrefs): string {
   const sidebarWidth = clampSidebarWidth(prefs.sidebarWidth)
   const windowBounds = clampWindowBounds(prefs.windowBounds)
-  return JSON.stringify({ sidebarWidth, windowBounds })
+  return JSON.stringify({
+    sidebarWidth,
+    windowBounds,
+    theme: clampTheme(prefs.theme),
+    focusMode: clampBool(prefs.focusMode, false),
+    typewriterMode: clampBool(prefs.typewriterMode, false),
+    spellcheck: clampBool(prefs.spellcheck, true)
+  })
 }
 
 export function parsePrefsJson(raw: string | null): AppPrefs {
@@ -98,12 +124,24 @@ export function parsePrefsJson(raw: string | null): AppPrefs {
   try {
     const data = JSON.parse(raw) as unknown
     if (!data || typeof data !== 'object') return { ...DEFAULT_PREFS }
-    const obj = data as { sidebarWidth?: unknown; windowBounds?: unknown }
+    const obj = data as {
+      sidebarWidth?: unknown
+      windowBounds?: unknown
+      theme?: unknown
+      focusMode?: unknown
+      typewriterMode?: unknown
+      spellcheck?: unknown
+    }
     return {
       sidebarWidth: clampSidebarWidth(obj.sidebarWidth),
       windowBounds: clampWindowBounds(
         obj.windowBounds as Partial<WindowBounds> | null | undefined
-      )
+      ),
+      theme: clampTheme(obj.theme),
+      focusMode: clampBool(obj.focusMode, false),
+      typewriterMode: clampBool(obj.typewriterMode, false),
+      // Old prefs files lack this field — default on, so behavior is unchanged.
+      spellcheck: clampBool(obj.spellcheck, true)
     }
   } catch {
     return { ...DEFAULT_PREFS }
