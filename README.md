@@ -25,9 +25,20 @@ A desktop Markdown editor built with Electron, React, and TipTap. It uses Typora
 - **Paragraph and Format menus** — math blocks, YAML front matter, footnotes, table of contents, HTML blocks, superscript/subscript, and highlight (`==x==`); edits round-trip back to source Markdown
 - **Export** — self-contained HTML and PDF with syntax-highlighted code blocks and heading IDs that match the generated TOC
 - **Resizable sidebar** — five panels (files, outline, tags, search, backlinks); drag to resize, and window/sidebar sizes are remembered
+- **View menu** — click to add or remove sidebar panels (files, outline, tags, backlinks); checkmarks always reflect what is actually visible
+- **Appearance menu** — focus mode, typewriter mode, dark theme and spellcheck toggle, with settings remembered across sessions
+- **Writing experience** — bracket/quote auto-pairing, consistent light/dark colors, and a status bar that resets to zero for empty documents
 - **Centered reading column** — on wide windows the text stays in a centered column
 
 > Math and raw HTML blocks are kept as source and shown monospaced; they are not typeset or rendered live in the editor.
+
+## What's new in v0.1.2
+
+- In-document find & replace with a Ctrl+F floating bar, live highlights, case/whole-word options and replace-all
+- View menu now toggles sidebar panels instead of merely switching tabs, with checkmarks kept in sync
+- Workspace file search moved to the right-click menu; Esc exits search cleanly
+- New Appearance menu (focus mode, typewriter mode, dark theme, spellcheck) replaces the old "modules" tab
+- Fixed stale word counts on empty documents, unified dark-theme colors, and made the red spellcheck squiggles optional
 
 ## Develop
 

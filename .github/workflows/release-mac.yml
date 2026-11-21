@@ -54,15 +54,29 @@ jobs:
           files: |
             release/*.dmg
             release/*.zip
+          # CI rewrites the release body on every tag push, so this template must
+          # contain the real release notes — manual edits to the body will be lost.
           body: |
-            ## Windows
+            ## Markdown Editor ${{ steps.tag.outputs.number }}
 
+            ### 新增与改进
+            - **文档内查找与替换** — Ctrl+F 浮层、实时高亮、上一个/下一个、区分大小写与全词匹配、替换与全部替换
+            - **视图菜单** — 点击增减侧栏面板（文件/大纲/标签/反链），勾选状态与实际可见性保持一致
+            - **外观菜单** — 专注模式、打字机模式、深色主题、拼写检查开关，设置会持久保存
+            - **写作体验** — 括号/引号自动配对；右键工作区可搜索文件，Esc 退出搜索
+            - **导出** — 自包含 HTML/PDF，代码块语法高亮，标题 ID 与目录一致
+
+            ### 修复
+            - 空文档状态栏字数不再残留上一次统计
+            - 深色主题上下区域配色统一，导出 HTML 跟随当前主题
+            - 英文红波浪线（拼写检查）改为可开关
+
+            ### Windows
             - **Markdown.Editor.Setup.${{ steps.tag.outputs.number }}.exe** — installer
             - **Markdown.Editor.${{ steps.tag.outputs.number }}.exe** — portable
             - **Markdown.Editor.zip** — portable zip
 
-            ## macOS (unsigned)
-
+            ### macOS (unsigned)
             - **Markdown.Editor-${{ steps.tag.outputs.number }}.dmg** / **Markdown.Editor-${{ steps.tag.outputs.number }}-mac.zip** — Intel (`x64`)
             - **Markdown.Editor-${{ steps.tag.outputs.number }}-arm64.dmg** / **Markdown.Editor-${{ steps.tag.outputs.number }}-arm64-mac.zip** — Apple Silicon (`arm64`)
 
@@ -70,8 +84,7 @@ jobs:
 
             **First open:** Gatekeeper may block unsigned apps. Right-click the app → **Open**, then confirm. After that, a normal double-click works.
 
-            ## Notes
-
+            ### Notes
             Electron + React + TipTap desktop Markdown editor (Typora-like hybrid editing). MIT.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
