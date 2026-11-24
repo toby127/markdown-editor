@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core'
+import { t, type ResolvedLanguage } from './i18n'
 import type { MenuActionName } from './ipc'
 import { createHeadingSlugger } from './slugger'
 
@@ -61,72 +62,72 @@ function cmd(
   return { type: 'command', action, label, enabled: true, accelerator }
 }
 
-export function buildParagraphMenuSpecs(): EditorMenuItemSpec[] {
+export function buildParagraphMenuSpecs(lang: ResolvedLanguage = 'zh'): EditorMenuItemSpec[] {
   return [
-    cmd('paragraph', '段落', 'CmdOrCtrl+0'),
-    cmd('heading1', '一级标题', 'CmdOrCtrl+1'),
-    cmd('heading2', '二级标题', 'CmdOrCtrl+2'),
-    cmd('heading3', '三级标题', 'CmdOrCtrl+3'),
-    cmd('heading4', '四级标题', 'CmdOrCtrl+4'),
-    cmd('heading5', '五级标题', 'CmdOrCtrl+5'),
-    cmd('heading6', '六级标题', 'CmdOrCtrl+6'),
-    cmd('headingIncrease', '提升标题级别', 'CmdOrCtrl+='),
-    cmd('headingDecrease', '降低标题级别', 'CmdOrCtrl+-'),
+    cmd('paragraph', t('menuParagraph', lang), 'CmdOrCtrl+0'),
+    cmd('heading1', t('heading1', lang), 'CmdOrCtrl+1'),
+    cmd('heading2', t('heading2', lang), 'CmdOrCtrl+2'),
+    cmd('heading3', t('heading3', lang), 'CmdOrCtrl+3'),
+    cmd('heading4', t('heading4', lang), 'CmdOrCtrl+4'),
+    cmd('heading5', t('heading5', lang), 'CmdOrCtrl+5'),
+    cmd('heading6', t('heading6', lang), 'CmdOrCtrl+6'),
+    cmd('headingIncrease', t('promoteHeading', lang), 'CmdOrCtrl+='),
+    cmd('headingDecrease', t('demoteHeading', lang), 'CmdOrCtrl+-'),
     { type: 'separator' },
-    cmd('insertTable', '表格', 'CmdOrCtrl+T'),
-    cmd('codeBlock', '代码块', 'CmdOrCtrl+Shift+K'),
-    cmd('mathBlock', '公式块', 'CmdOrCtrl+Shift+M'),
-    cmd('blockquote', '引用', 'CmdOrCtrl+Shift+Q'),
-    cmd('orderedList', '有序列表', 'CmdOrCtrl+Shift+['),
-    cmd('bulletList', '无序列表', 'CmdOrCtrl+Shift+]'),
-    cmd('taskList', '任务列表'),
+    cmd('insertTable', t('table', lang), 'CmdOrCtrl+T'),
+    cmd('codeBlock', t('codeBlock', lang), 'CmdOrCtrl+Shift+K'),
+    cmd('mathBlock', t('mathBlock', lang), 'CmdOrCtrl+Shift+M'),
+    cmd('blockquote', t('blockquote', lang), 'CmdOrCtrl+Shift+Q'),
+    cmd('orderedList', t('orderedList', lang), 'CmdOrCtrl+Shift+['),
+    cmd('bulletList', t('bulletList', lang), 'CmdOrCtrl+Shift+]'),
+    cmd('taskList', t('taskList', lang)),
     {
       type: 'submenu',
       id: 'taskStatus',
-      label: '任务状态',
+      label: t('taskState', lang),
       items: [
-        cmd('taskToggle', '切换任务状态'),
-        cmd('taskComplete', '标记为已完成'),
-        cmd('taskIncomplete', '标记为未完成')
+        cmd('taskToggle', t('toggleTask', lang)),
+        cmd('taskComplete', t('markDone', lang)),
+        cmd('taskIncomplete', t('markUndone', lang))
       ]
     },
     {
       type: 'submenu',
       id: 'listIndent',
-      label: '列表缩进',
+      label: t('listIndent', lang),
       items: [
-        cmd('indent', '增加缩进', 'CmdOrCtrl+['),
-        cmd('outdent', '减少缩进', 'CmdOrCtrl+]')
+        cmd('indent', t('indent', lang), 'CmdOrCtrl+['),
+        cmd('outdent', t('outdent', lang), 'CmdOrCtrl+]')
       ]
     },
     { type: 'separator' },
-    cmd('linkReference', '链接引用'),
-    cmd('footnote', '脚注'),
-    cmd('horizontalRule', '水平分割线'),
-    cmd('toc', '内容目录'),
+    cmd('linkReference', t('linkReference', lang)),
+    cmd('footnote', t('footnote', lang)),
+    cmd('horizontalRule', t('horizontalRule', lang)),
+    cmd('toc', t('toc', lang)),
     cmd('yamlFrontMatter', 'YAML Front Matter'),
-    cmd('htmlBlock', 'HTML 内容'),
-    cmd('deleteBlock', '删除块')
+    cmd('htmlBlock', t('htmlBlock', lang)),
+    cmd('deleteBlock', t('deleteBlock', lang))
   ]
 }
 
-export function buildFormatMenuSpecs(): EditorMenuItemSpec[] {
+export function buildFormatMenuSpecs(lang: ResolvedLanguage = 'zh'): EditorMenuItemSpec[] {
   return [
-    cmd('bold', '加粗', 'CmdOrCtrl+B'),
-    cmd('italic', '斜体', 'CmdOrCtrl+I'),
-    cmd('underline', '下划线', 'CmdOrCtrl+U'),
-    cmd('inlineCode', '代码', 'CmdOrCtrl+Shift+`'),
-    cmd('inlineMath', '内联公式'),
-    cmd('strike', '删除线', 'Alt+Shift+5'),
-    cmd('highlight', '高亮'),
-    cmd('superscript', '上标'),
-    cmd('subscript', '下标'),
-    cmd('comment', '注释'),
+    cmd('bold', t('bold', lang), 'CmdOrCtrl+B'),
+    cmd('italic', t('italic', lang), 'CmdOrCtrl+I'),
+    cmd('underline', t('underline', lang), 'CmdOrCtrl+U'),
+    cmd('inlineCode', t('code', lang), 'CmdOrCtrl+Shift+`'),
+    cmd('inlineMath', t('inlineMath', lang)),
+    cmd('strike', t('strike', lang), 'Alt+Shift+5'),
+    cmd('highlight', t('highlight', lang)),
+    cmd('superscript', t('superscript', lang)),
+    cmd('subscript', t('subscript', lang)),
+    cmd('comment', t('comment', lang)),
     { type: 'separator' },
-    cmd('link', '超链接', 'CmdOrCtrl+K'),
-    cmd('image', '图像', 'CmdOrCtrl+Shift+I'),
+    cmd('link', t('hyperlink', lang), 'CmdOrCtrl+K'),
+    cmd('image', t('image', lang), 'CmdOrCtrl+Shift+I'),
     { type: 'separator' },
-    cmd('clearFormat', '清除样式', 'CmdOrCtrl+\\')
+    cmd('clearFormat', t('clearFormat', lang), 'CmdOrCtrl+\\')
   ]
 }
 
@@ -137,7 +138,11 @@ function headingLevel(editor: Editor): number | null {
   return null
 }
 
-export function applyEditorMenuAction(editor: Editor, action: MenuActionName): boolean {
+export function applyEditorMenuAction(
+  editor: Editor,
+  action: MenuActionName,
+  lang: ResolvedLanguage = 'zh'
+): boolean {
   const chain = () => editor.chain().focus()
   switch (action) {
     case 'paragraph':
@@ -169,15 +174,15 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
     case 'insertTable':
       return chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
     case 'image': {
-      const src = window.prompt('图片 URL', 'https://')
+      const src = window.prompt(t('promptImageUrl', lang), 'https://')
       if (src === null || src.trim() === '') return false
-      const alt = window.prompt('图片描述（可选）', '') ?? ''
+      const alt = window.prompt(t('promptImageDesc', lang), '') ?? ''
       return chain().setImage({ src: src.trim(), alt: alt.trim() }).run()
     }
     case 'codeBlock':
       return chain().toggleCodeBlock().run()
     case 'mathBlock': {
-      const expression = window.prompt('LaTeX 公式', 'E = mc^2')
+      const expression = window.prompt(t('promptLatex', lang), 'E = mc^2')
       if (expression === null || expression.trim() === '') return false
       // `$$` fenced math stays verbatim as paragraph text through the
       // roundtrip; full KaTeX rendering is a separate, heavier dependency.
@@ -210,9 +215,9 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
     case 'horizontalRule':
       return chain().setHorizontalRule().run()
     case 'linkReference': {
-      const text = window.prompt('链接文字')
+      const text = window.prompt(t('promptLinkText', lang))
       if (text === null || text.trim() === '') return false
-      const href = window.prompt('链接 URL', 'https://')
+      const href = window.prompt(t('promptLinkUrl', lang), 'https://')
       if (href === null || href.trim() === '') return false
       // Editor normalizes reference-style links to inline links: the href is
       // preserved, while a separate definition block would be dropped by
@@ -220,9 +225,9 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
       return insertMarkdown(editor, `[${text.trim()}](${href.trim()})`)
     }
     case 'footnote': {
-      const label = window.prompt('脚注编号', '1')
+      const label = window.prompt(t('promptFootnoteLabel', lang), '1')
       if (label === null || label.trim() === '') return false
-      const note = window.prompt('脚注内容')
+      const note = window.prompt(t('promptFootnoteBody', lang))
       if (note === null || note.trim() === '') return false
       return insertMarkdown(editor, `[^${label.trim()}]\n\n[^${label.trim()}]: ${note.trim()}\n`)
     }
@@ -244,9 +249,9 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
       return insertMarkdown(editor, `${lines.join('\n')}\n`)
     }
     case 'yamlFrontMatter': {
-      const title = window.prompt('文档标题（YAML title）', '')
+      const title = window.prompt(t('promptDocTitle', lang), '')
       if (title === null) return false
-      const tags = window.prompt('标签（逗号分隔，可留空）', '') ?? ''
+      const tags = window.prompt(t('promptTags', lang), '') ?? ''
       const tagList = tags
         .split(',')
         .map((tag) => tag.trim())
@@ -263,7 +268,7 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
       return insertMarkdownAt(editor, 0, source)
     }
     case 'htmlBlock': {
-      const html = window.prompt('HTML 内容', '<div class="note">\n  内容\n</div>')
+      const html = window.prompt(t('promptHtmlContent', lang), '<div class="note">\n  内容\n</div>')
       if (html === null || html.trim() === '') return false
       // Raw HTML would be stripped to its text content by the editor schema;
       // a fenced block keeps the source byte-for-byte and stays editable.
@@ -293,12 +298,12 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
     case 'subscript':
       return chain().toggleSubscript().run()
     case 'inlineMath': {
-      const expression = window.prompt('LaTeX 行内公式', 'x^2')
+      const expression = window.prompt(t('promptInlineMath', lang), 'x^2')
       if (expression === null || expression.trim() === '') return false
       return insertMarkdown(editor, `$${expression.trim()}$`)
     }
     case 'comment': {
-      const text = window.prompt('注释内容')
+      const text = window.prompt(t('promptComment', lang))
       if (text === null || text.trim() === '') return false
       // HTML comments are not part of the editor schema; keep them verbatim
       // in a fenced block instead of letting the parser drop them.
@@ -306,7 +311,7 @@ export function applyEditorMenuAction(editor: Editor, action: MenuActionName): b
     }
     case 'link': {
       const prev = editor.getAttributes('link').href as string | undefined
-      const href = window.prompt('链接 URL', prev ?? 'https://')
+      const href = window.prompt(t('promptLinkUrl', lang), prev ?? 'https://')
       if (href === null) return false
       if (href.trim() === '') return chain().unsetLink().run()
       return chain().extendMarkRange('link').setLink({ href: href.trim() }).run()

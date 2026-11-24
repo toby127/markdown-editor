@@ -1,3 +1,4 @@
+import { t, type ResolvedLanguage, type TranslationKey } from './i18n'
 import type { MenuActionName } from './ipc'
 
 export type EditMenuRole = 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'selectAll'
@@ -12,10 +13,15 @@ export type EditMenuActionItem = {
 }
 export type EditMenuSubmenuItem = EditMenuRoleItem | EditMenuSeparator | EditMenuActionItem
 
+/** Default zh keeps existing callers (and tests) unchanged; pass a language to localize. */
+export const appMenuLabel = (key: TranslationKey, lang: ResolvedLanguage = 'zh'): string => t(key, lang)
+
 export const APP_MENU_FILE_LABEL = '文件'
 export const APP_MENU_EDIT_LABEL = '编辑'
 export const APP_MENU_VIEW_LABEL = '视图'
 export const APP_MENU_APPEARANCE_LABEL = '外观'
+export const APP_MENU_PARAGRAPH_LABEL = '段落'
+export const APP_MENU_FORMAT_LABEL = '格式'
 
 export type ViewMenuActionName = Extract<
   MenuActionName,
@@ -37,12 +43,12 @@ export const viewActionLabels = {
 
 /** The View menu owns the sidebar panels that used to be permanent tabs.
  * Search is intentionally absent here — it lives in the file-tree context menu. */
-export function buildViewMenuSubmenuItems(): ViewMenuActionItem[] {
+export function buildViewMenuSubmenuItems(lang: ResolvedLanguage = 'zh'): ViewMenuActionItem[] {
   return [
-    { action: 'viewFiles', label: viewActionLabels.viewFiles, panel: 'files' },
-    { action: 'viewOutline', label: viewActionLabels.viewOutline, panel: 'outline' },
-    { action: 'viewTags', label: viewActionLabels.viewTags, panel: 'tags' },
-    { action: 'viewBacklinks', label: viewActionLabels.viewBacklinks, panel: 'links' }
+    { action: 'viewFiles', label: t('viewFiles', lang), panel: 'files' },
+    { action: 'viewOutline', label: t('viewOutline', lang), panel: 'outline' },
+    { action: 'viewTags', label: t('viewTags', lang), panel: 'tags' },
+    { action: 'viewBacklinks', label: t('viewBacklinks', lang), panel: 'links' }
   ]
 }
 
@@ -60,32 +66,55 @@ export type AppearanceMenuActionItem = {
   checkedWhen: true | 'dark'
 }
 
-export const buildAppearanceMenuSubmenuItems = (): AppearanceMenuActionItem[] => [
+export const buildAppearanceMenuSubmenuItems = (
+  lang: ResolvedLanguage = 'zh'
+): AppearanceMenuActionItem[] => [
   {
     action: 'toggleFocusMode',
-    label: '专注模式',
+    label: t('appearanceFocus', lang),
     prefsKey: 'focusMode',
     checkedWhen: true
   },
   {
     action: 'toggleTypewriterMode',
-    label: '打字机模式',
+    label: t('appearanceTypewriter', lang),
     prefsKey: 'typewriterMode',
     checkedWhen: true
   },
   {
     action: 'toggleTheme',
-    label: '深色主题',
+    label: t('appearanceDarkTheme', lang),
     prefsKey: 'theme',
     checkedWhen: 'dark'
   },
   {
     action: 'toggleSpellcheck',
-    label: '拼写检查',
+    label: t('appearanceSpellcheck', lang),
     prefsKey: 'spellcheck',
     checkedWhen: true
   }
 ]
+
+export type LanguageMenuActionName = Extract<
+  MenuActionName,
+  'setLanguageSystem' | 'setLanguageZh' | 'setLanguageEn'
+>
+export type LanguageMenuActionItem = {
+  action: LanguageMenuActionName
+  label: string
+  value: 'system' | 'zh' | 'en'
+}
+
+/** Language submenu shown inside 外观 / Appearance. */
+export function buildLanguageMenuSubmenuItems(
+  lang: ResolvedLanguage = 'zh'
+): LanguageMenuActionItem[] {
+  return [
+    { action: 'setLanguageSystem', label: t('languageSystem', lang), value: 'system' },
+    { action: 'setLanguageZh', label: t('languageZh', lang), value: 'zh' },
+    { action: 'setLanguageEn', label: t('languageEn', lang), value: 'en' }
+  ]
+}
 
 export const editRoleLabels: Record<EditMenuRole, string> = {
   undo: '撤销',
@@ -101,17 +130,26 @@ export const editActionLabels = {
   findReplace: '查找并替换'
 } as const
 
-export function buildEditMenuSubmenuItems(): EditMenuSubmenuItem[] {
+const editRoleKeys: Record<EditMenuRole, TranslationKey> = {
+  undo: 'editUndo',
+  redo: 'editRedo',
+  cut: 'editCut',
+  copy: 'editCopy',
+  paste: 'editPaste',
+  selectAll: 'editSelectAll'
+}
+
+export function buildEditMenuSubmenuItems(lang: ResolvedLanguage = 'zh'): EditMenuSubmenuItem[] {
   return [
-    { role: 'undo', label: editRoleLabels.undo },
-    { role: 'redo', label: editRoleLabels.redo },
+    { role: 'undo', label: t('editUndo', lang) },
+    { role: 'redo', label: t('editRedo', lang) },
     { type: 'separator' },
-    { role: 'cut', label: editRoleLabels.cut },
-    { role: 'copy', label: editRoleLabels.copy },
-    { role: 'paste', label: editRoleLabels.paste },
-    { role: 'selectAll', label: editRoleLabels.selectAll },
+    { role: 'cut', label: t('editCut', lang) },
+    { role: 'copy', label: t('editCopy', lang) },
+    { role: 'paste', label: t('editPaste', lang) },
+    { role: 'selectAll', label: t('editSelectAll', lang) },
     { type: 'separator' },
-    { action: 'find', label: editActionLabels.find, accelerator: 'CmdOrCtrl+F' },
-    { action: 'findReplace', label: editActionLabels.findReplace, accelerator: 'CmdOrCtrl+Shift+H' }
+    { action: 'find', label: t('editFind', lang), accelerator: 'CmdOrCtrl+F' },
+    { action: 'findReplace', label: t('editFindReplace', lang), accelerator: 'CmdOrCtrl+Shift+H' }
   ]
 }

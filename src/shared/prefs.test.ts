@@ -126,7 +126,8 @@ describe('serializePrefs / parsePrefsJson', () => {
       theme: 'dark',
       focusMode: true,
       typewriterMode: false,
-      spellcheck: false
+      spellcheck: false,
+        language: 'system'
     }
     const raw = serializePrefs(prefs)
     expect(parsePrefsJson(raw)).toEqual(prefs)
@@ -139,7 +140,8 @@ describe('serializePrefs / parsePrefsJson', () => {
       theme: 'light',
       focusMode: false,
       typewriterMode: false,
-      spellcheck: true
+      spellcheck: true,
+        language: 'system'
     })
     expect(parsePrefsJson('not-json')).toEqual({
       sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
@@ -147,7 +149,8 @@ describe('serializePrefs / parsePrefsJson', () => {
       theme: 'light',
       focusMode: false,
       typewriterMode: false,
-      spellcheck: true
+      spellcheck: true,
+        language: 'system'
     })
     expect(parsePrefsJson(JSON.stringify({ sidebarWidth: 999, windowBounds: null }))).toEqual({
       sidebarWidth: SIDEBAR_WIDTH_MAX,
@@ -155,7 +158,8 @@ describe('serializePrefs / parsePrefsJson', () => {
       theme: 'light',
       focusMode: false,
       typewriterMode: false,
-      spellcheck: true
+      spellcheck: true,
+        language: 'system'
     })
   })
 

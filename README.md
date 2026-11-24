@@ -27,6 +27,7 @@ A desktop Markdown editor built with Electron, React, and TipTap. It uses Typora
 - **Resizable sidebar** — five panels (files, outline, tags, search, backlinks); drag to resize, and window/sidebar sizes are remembered
 - **View menu** — click to add or remove sidebar panels (files, outline, tags, backlinks); checkmarks always reflect what is actually visible
 - **Appearance menu** — focus mode, typewriter mode, dark theme and spellcheck toggle, with settings remembered across sessions
+- **Bilingual UI** — switch the whole interface between Chinese and English (Appearance → Language); defaults to following the system locale and remembers your choice
 - **Writing experience** — bracket/quote auto-pairing, consistent light/dark colors, and a status bar that resets to zero for empty documents
 - **Centered reading column** — on wide windows the text stays in a centered column
 
@@ -43,6 +44,9 @@ Open the [`examples/`](examples/) folder as your workspace to try a sample docum
 - Workspace file search moved to the right-click menu; Esc exits search cleanly
 - New Appearance menu (focus mode, typewriter mode, dark theme, spellcheck) replaces the old "modules" tab
 - Fixed stale word counts on empty documents, unified dark-theme colors, and made the red spellcheck squiggles optional
+- Added Chinese/English UI switching under Appearance → Language (follows the system locale by default)
+- Fixed a Markdown round-trip crash when superscript/subscript text wraps a wiki link or footnote reference
+- Refreshed the README screenshots to show the new example document
 
 ## Develop
 

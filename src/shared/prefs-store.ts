@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import {
   clampBool,
+  clampLanguage,
   clampSidebarWidth,
   clampTheme,
   clampWindowBounds,
@@ -61,4 +62,8 @@ export function withTypewriterMode(prefs: AppPrefs, value: unknown): AppPrefs {
 
 export function withSpellcheck(prefs: AppPrefs, value: unknown): AppPrefs {
   return { ...prefs, spellcheck: clampBool(value, true) }
+}
+
+export function withLanguage(prefs: AppPrefs, value: unknown): AppPrefs {
+  return { ...prefs, language: clampLanguage(value) }
 }

@@ -34,13 +34,11 @@ import {
 import { scanWorkspaceTags } from './workspace-tags'
 import { buildWorkspaceIndex } from './workspace-index'
 import {
-  APP_MENU_APPEARANCE_LABEL,
-  APP_MENU_EDIT_LABEL,
-  APP_MENU_FILE_LABEL,
-  APP_MENU_VIEW_LABEL,
   buildAppearanceMenuSubmenuItems,
   buildEditMenuSubmenuItems,
+  buildLanguageMenuSubmenuItems,
   buildViewMenuSubmenuItems,
+  type LanguageMenuActionItem,
   type AppearanceMenuActionItem,
   type EditMenuSubmenuItem,
   type ViewMenuActionItem
@@ -65,12 +63,14 @@ import {
   prefsFilePath,
   savePrefsToFile,
   withFocusMode,
+  withLanguage,
   withSidebarWidth,
   withSpellcheck,
   withTheme,
   withTypewriterMode,
   withWindowBounds
 } from '../src/shared/prefs-store'
+import { resolveLanguage, t, type ResolvedLanguage } from '../src/shared/i18n'
 
 const markdownFilters = [
   { name: 'Markdown', extensions: ['md', 'markdown'] },
@@ -91,6 +91,9 @@ let menuWorkspaceRoot: string | null = null
 let menuVisiblePanels: string[] = []
 /** Mirrors writing prefs in the main process so the 外观 menu can render checkmarks. */
 let menuAppearancePrefs = { focusMode: false, typewriterMode: false, theme: 'light', spellcheck: true }
+/** Resolved UI language for native menus/dialogs; 'system' resolves via app.getLocale(). */
+let menuLanguage: ResolvedLanguage = 'zh'
+let menuLanguagePref: 'system' | 'zh' | 'en' = 'system'
 
 let appPrefs: AppPrefs = {
   sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
@@ -98,7 +101,8 @@ let appPrefs: AppPrefs = {
   theme: 'light',
   focusMode: false,
   typewriterMode: false,
-  spellcheck: true
+  spellcheck: true,
+  language: 'system'
 }
 let prefsPath = ''
 let saveBoundsTimer: ReturnType<typeof setTimeout> | null = null
@@ -110,10 +114,25 @@ function getPrefsPath(): string {
   return prefsPath
 }
 
+function systemLanguage(): string {
+  try {
+    return app.getLocale()
+  } catch {
+    return 'en'
+  }
+}
+
+/** Resolve and mirror the UI language so menus, dialogs and errors stay in sync. */
+function syncLanguageFromPrefs(): void {
+  menuLanguagePref = appPrefs.language
+  menuLanguage = resolveLanguage(menuLanguagePref, systemLanguage())
+}
+
 function loadAppPrefs(): void {
   appPrefs = loadPrefsFromFile(getPrefsPath())
   applyNativeTheme(appPrefs.theme)
   syncAppearancePrefsFromAppPrefs()
+  syncLanguageFromPrefs()
 }
 
 /** Keep native (system-drawn) menus and title bar in sync with the app theme. */
@@ -224,25 +243,42 @@ function appearanceItemToTemplate(item: AppearanceMenuActionItem): MenuItemConst
   }
 }
 
-function buildAppMenu(): Menu {
-  const fileSubmenu = buildFileMenuSpecs({
-    workspaceRoot: menuWorkspaceRoot,
-    recents: menuRecents
-  }).map(specToTemplate)
+function languageItemToTemplate(item: LanguageMenuActionItem): MenuItemConstructorOptions {
+  return {
+    label: item.label,
+    type: 'radio',
+    checked: menuLanguagePref === item.value,
+    click: () => sendMenuAction({ action: item.action })
+  }
+}
 
-  const paragraphSubmenu = buildParagraphMenuSpecs().map(specToTemplate)
-  const formatSubmenu = buildFormatMenuSpecs().map(specToTemplate)
-  const editSubmenu = buildEditMenuSubmenuItems().map(editItemToTemplate)
-  const viewSubmenu = buildViewMenuSubmenuItems().map(viewItemToTemplate)
-  const appearanceSubmenu = buildAppearanceMenuSubmenuItems().map(appearanceItemToTemplate)
+function buildAppMenu(): Menu {
+  const lang = menuLanguage
+  const fileSubmenu = buildFileMenuSpecs(
+    { workspaceRoot: menuWorkspaceRoot, recents: menuRecents },
+    lang
+  ).map(specToTemplate)
+
+  const paragraphSubmenu = buildParagraphMenuSpecs(lang).map(specToTemplate)
+  const formatSubmenu = buildFormatMenuSpecs(lang).map(specToTemplate)
+  const editSubmenu = buildEditMenuSubmenuItems(lang).map(editItemToTemplate)
+  const viewSubmenu = buildViewMenuSubmenuItems(lang).map(viewItemToTemplate)
+  const appearanceSubmenu: MenuItemConstructorOptions[] = [
+    ...buildAppearanceMenuSubmenuItems(lang).map(appearanceItemToTemplate),
+    { type: 'separator' },
+    {
+      label: t('appearanceLanguage', lang),
+      submenu: buildLanguageMenuSubmenuItems(lang).map(languageItemToTemplate)
+    }
+  ]
 
   return Menu.buildFromTemplate([
-    { label: APP_MENU_FILE_LABEL, submenu: fileSubmenu },
-    { label: APP_MENU_EDIT_LABEL, submenu: editSubmenu },
-    { label: APP_MENU_VIEW_LABEL, submenu: viewSubmenu },
-    { label: APP_MENU_APPEARANCE_LABEL, submenu: appearanceSubmenu },
-    { label: '段落', submenu: paragraphSubmenu },
-    { label: '格式', submenu: formatSubmenu }
+    { label: t('menuFile', lang), submenu: fileSubmenu },
+    { label: t('menuEdit', lang), submenu: editSubmenu },
+    { label: t('menuView', lang), submenu: viewSubmenu },
+    { label: t('menuAppearance', lang), submenu: appearanceSubmenu },
+    { label: t('menuParagraph', lang), submenu: paragraphSubmenu },
+    { label: t('menuFormat', lang), submenu: formatSubmenu }
   ])
 }
 
@@ -251,6 +287,11 @@ function applyMenuState(state: MenuSyncState): void {
   menuWorkspaceRoot = state.workspaceRoot
   menuVisiblePanels = state.visiblePanels ?? []
   if (state.appearancePrefs) menuAppearancePrefs = state.appearancePrefs
+  if (state.language) {
+    menuLanguage = state.language
+  } else {
+    syncLanguageFromPrefs()
+  }
   Menu.setApplicationMenu(buildAppMenu())
 }
 
@@ -397,7 +438,7 @@ async function saveFileAs(content: string): Promise<SaveFileResult> {
     await fs.writeFile(filePath, content, 'utf8')
     return { ok: true, path: filePath }
   } catch (e) {
-    return { ok: false, error: `保存失败：${(e as Error).message}` }
+    return { ok: false, error: t('errSave', menuLanguage, { msg: (e as Error).message }) }
   }
 }
 
@@ -415,7 +456,7 @@ function registerFileHandlers(): void {
       const content = await fs.readFile(filePaths[0], 'utf8')
       return { ok: true, path: filePaths[0], content }
     } catch (e) {
-      return { ok: false, error: `打开失败：${(e as Error).message}` }
+      return { ok: false, error: t('errOpen', menuLanguage, { msg: (e as Error).message }) }
     }
   })
 
@@ -430,7 +471,7 @@ function registerFileHandlers(): void {
           await fs.writeFile(req.path, req.content, 'utf8')
           result = { ok: true, path: req.path }
         } catch (e) {
-          result = { ok: false, error: `保存失败：${(e as Error).message}` }
+          result = { ok: false, error: t('errSave', menuLanguage, { msg: (e as Error).message }) }
         }
       }
       return result
@@ -468,10 +509,10 @@ function registerFileHandlers(): void {
       const win = mainWindow ?? undefined
       const { response } = await dialog.showMessageBox(win, {
         type: 'question',
-        buttons: ['保存', '不保存', '取消'],
+        buttons: [t('dialogSave', menuLanguage), t('dialogDontSave', menuLanguage), t('dialogCancel', menuLanguage)],
         defaultId: 0,
         cancelId: 2,
-        title: '未保存的更改',
+        title: t('dialogUnsavedTitle', menuLanguage),
         message
       })
       if (response === 0) return 'save'
@@ -491,7 +532,7 @@ function registerFileHandlers(): void {
       }
       return { ok: true, path: filePaths[0] }
     } catch (e) {
-      return { ok: false, error: `打开文件夹失败：${(e as Error).message}` }
+      return { ok: false, error: t('errOpenFolder', menuLanguage, { msg: (e as Error).message }) }
     }
   })
 
@@ -516,7 +557,7 @@ function registerFileHandlers(): void {
       })
       return { ok: true, entries }
     } catch (e) {
-      return { ok: false, error: `读取目录失败：${(e as Error).message}` }
+      return { ok: false, error: t('errReadDir', menuLanguage, { msg: (e as Error).message }) }
     }
   })
 
@@ -525,7 +566,7 @@ function registerFileHandlers(): void {
       const content = await fs.readFile(filePath, 'utf8')
       return { ok: true, content }
     } catch (e) {
-      return { ok: false, error: `读取失败：${(e as Error).message}` }
+      return { ok: false, error: t('errRead', menuLanguage, { msg: (e as Error).message }) }
     }
   })
 
@@ -546,7 +587,7 @@ function registerFileHandlers(): void {
       try {
         try {
           await fs.access(target)
-          return { ok: false, error: '已存在同名项' }
+          return { ok: false, error: t('errExists', menuLanguage) }
         } catch {
           // does not exist — proceed
         }
@@ -557,7 +598,7 @@ function registerFileHandlers(): void {
         }
         return { ok: true, path: target }
       } catch (e) {
-        return { ok: false, error: `创建失败：${(e as Error).message}` }
+        return { ok: false, error: t('errCreate', menuLanguage, { msg: (e as Error).message }) }
       }
     }
   )
@@ -569,14 +610,14 @@ function registerFileHandlers(): void {
       try {
         try {
           await fs.access(target)
-          return { ok: false, error: '已存在同名项' }
+          return { ok: false, error: t('errExists', menuLanguage) }
         } catch {
           // destination free
         }
         await fs.rename(req.path, target)
         return { ok: true, path: target }
       } catch (e) {
-        return { ok: false, error: `重命名失败：${(e as Error).message}` }
+        return { ok: false, error: t('errRename', menuLanguage, { msg: (e as Error).message }) }
       }
     }
   )
@@ -586,7 +627,7 @@ function registerFileHandlers(): void {
       await fs.rm(path, { recursive: true, force: false })
       return { ok: true }
     } catch (e) {
-      return { ok: false, error: `删除失败：${(e as Error).message}` }
+      return { ok: false, error: t('errDelete', menuLanguage, { msg: (e as Error).message }) }
     }
   })
 
@@ -626,6 +667,10 @@ function registerFileHandlers(): void {
         // Toggle the red squiggles live without recreating the window.
         mainWindow?.webContents.session.setSpellCheckerEnabled(appPrefs.spellcheck)
       }
+      if ('language' in patch) {
+        appPrefs = withLanguage(appPrefs, patch.language)
+        syncLanguageFromPrefs()
+      }
       syncAppearancePrefsFromAppPrefs()
       persistAppPrefs()
       // Rebuild now so native menu checkmarks update even before the renderer re-syncs.
@@ -649,7 +694,7 @@ function registerFileHandlers(): void {
         await fs.writeFile(filePath, req.html, 'utf8')
         return { ok: true, path: filePath }
       } catch (e) {
-        return { ok: false, error: `导出 HTML 失败：${(e as Error).message}` }
+        return { ok: false, error: t('errExportHtml', menuLanguage, { msg: (e as Error).message }) }
       }
     }
   )
@@ -683,7 +728,7 @@ function registerFileHandlers(): void {
         await fs.writeFile(filePath, pdf)
         return { ok: true, path: filePath }
       } catch (e) {
-        return { ok: false, error: `导出 PDF 失败：${(e as Error).message}` }
+        return { ok: false, error: t('errExportPdf', menuLanguage, { msg: (e as Error).message }) }
       } finally {
         if (!printWindow.isDestroyed()) printWindow.close()
       }

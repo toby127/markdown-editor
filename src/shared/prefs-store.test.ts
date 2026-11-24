@@ -21,7 +21,8 @@ const DEFAULT_EXPECTED: AppPrefs = {
   theme: 'light',
   focusMode: false,
   typewriterMode: false,
-  spellcheck: true
+  spellcheck: true,
+        language: 'system'
 }
 
 describe('prefsFilePath', () => {
@@ -58,7 +59,8 @@ describe('loadPrefsFromFile / savePrefsToFile', () => {
       theme: 'dark',
       focusMode: true,
       typewriterMode: true,
-      spellcheck: false
+      spellcheck: false,
+        language: 'system'
     }
     savePrefsToFile(path, prefs)
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(prefs)

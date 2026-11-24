@@ -49,10 +49,15 @@ function footnoteRefRule(state: InlineState, silent: boolean): boolean {
   if (end < 0) return false
   const label = src.slice(pos + 2, end)
   if (label === '' || /[\s\[\]]/.test(label)) return false
+  // markdown-it rules MUST advance state.pos even in silent/validation mode.
+  // A parent inline rule (e.g. markdown-it-sup scanning ^...^) calls skipToken
+  // over this content; a silent rule returning true without moving pos throws
+  // "inline rule didn't increment state.pos". Silent callers only probe and
+  // reset pos themselves, so advancing here is safe.
+  state.pos = end + 1
   if (silent) return true
   const token = state.push('footnote_ref', 'span', 0)
   token.content = label
-  state.pos = end + 1
   return true
 }
 

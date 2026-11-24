@@ -1,3 +1,4 @@
+import { t, type ResolvedLanguage } from './i18n'
 import type { MenuActionName } from './ipc'
 import { fileName } from './paths'
 import { RECENTS_MAX, type RecentEntry } from './recents'
@@ -26,10 +27,13 @@ export type FileMenuItemSpec =
   | FileMenuSeparatorSpec
   | FileMenuSubmenuSpec
 
-export function buildFileMenuSpecs(state: {
-  workspaceRoot: string | null
-  recents: RecentEntry[]
-}): FileMenuItemSpec[] {
+export function buildFileMenuSpecs(
+  state: {
+    workspaceRoot: string | null
+    recents: RecentEntry[]
+  },
+  lang: ResolvedLanguage = 'zh'
+): FileMenuItemSpec[] {
   const hasRoot = state.workspaceRoot != null && state.workspaceRoot !== ''
   const recentItems: Array<FileMenuCommandSpec | FileMenuSeparatorSpec> =
     state.recents.length === 0
@@ -37,7 +41,7 @@ export function buildFileMenuSpecs(state: {
           {
             type: 'command',
             action: 'openRecent',
-            label: '无最近打开',
+            label: t('fileNoRecents', lang),
             enabled: false
           }
         ]
@@ -56,7 +60,7 @@ export function buildFileMenuSpecs(state: {
           {
             type: 'command',
             action: 'clearRecents',
-            label: '清除最近打开',
+            label: t('fileClearRecents', lang),
             enabled: true
           }
         ]
@@ -65,61 +69,61 @@ export function buildFileMenuSpecs(state: {
     {
       type: 'command',
       action: 'new',
-      label: '新建',
+      label: t('fileNew', lang),
       enabled: true,
       accelerator: 'CmdOrCtrl+N'
     },
     {
       type: 'command',
       action: 'newFile',
-      label: '新建文件',
+      label: t('fileNewFile', lang),
       enabled: hasRoot
     },
     {
       type: 'command',
       action: 'newFolder',
-      label: '新建文件夹',
+      label: t('fileNewFolder', lang),
       enabled: hasRoot
     },
     { type: 'separator' },
     {
       type: 'command',
       action: 'open',
-      label: '打开…',
+      label: t('fileOpen', lang),
       enabled: true,
       accelerator: 'CmdOrCtrl+O'
     },
     {
       type: 'command',
       action: 'openFolder',
-      label: '打开文件夹…',
+      label: t('fileOpenFolder', lang),
       enabled: true,
       accelerator: 'CmdOrCtrl+Shift+O'
     },
     {
       type: 'command',
       action: 'reloadWorkspace',
-      label: '从磁盘重新加载',
+      label: t('fileReload', lang),
       enabled: hasRoot
     },
     {
       type: 'submenu',
       id: 'recents',
-      label: '最近打开',
+      label: t('fileRecents', lang),
       items: recentItems
     },
     { type: 'separator' },
     {
       type: 'command',
       action: 'save',
-      label: '保存',
+      label: t('fileSave', lang),
       enabled: true,
       accelerator: 'CmdOrCtrl+S'
     },
     {
       type: 'command',
       action: 'saveAs',
-      label: '另存为…',
+      label: t('fileSaveAs', lang),
       enabled: true,
       accelerator: 'CmdOrCtrl+Shift+S'
     },
@@ -127,13 +131,13 @@ export function buildFileMenuSpecs(state: {
     {
       type: 'command',
       action: 'exportHtml',
-      label: '导出为 HTML…',
+      label: t('fileExportHtml', lang),
       enabled: true
     },
     {
       type: 'command',
       action: 'exportPdf',
-      label: '导出为 PDF…',
+      label: t('fileExportPdf', lang),
       enabled: true
     }
   ]

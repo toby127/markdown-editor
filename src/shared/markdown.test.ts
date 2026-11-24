@@ -31,6 +31,22 @@ describe('markdown roundtrip', () => {
     expect(() => markdownToHtml('$$not-math$$')).not.toThrow()
   })
 
+  // Regression: custom inline rules MUST advance state.pos in silent mode.
+  // markdown-it-sup scans ^...^ / ~...~ via skipToken(silent=true); a silent
+  // rule that returns true without moving pos throws
+  // "inline rule didn't increment state.pos".
+  it('roundtrips superscript/subscript containing a wiki link', () => {
+    for (const src of ['^x[[Note]]y^\n', '~x[[Note]]y~\n']) {
+      const html = markdownToHtml(src)
+      expect(() => htmlToMarkdown(html)).not.toThrow()
+    }
+  })
+
+  it('roundtrips superscript containing a footnote reference', () => {
+    const html = markdownToHtml('text ^a[^1]b^\n\n[^1]: note\n')
+    expect(() => htmlToMarkdown(html)).not.toThrow()
+  })
+
   it('roundtrips footnote references and definitions without broken links', () => {
     const input = 'text[^1]\n\n[^1]: note here\n'
     const html = markdownToHtml(input)

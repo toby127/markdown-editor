@@ -18,6 +18,7 @@ export type DisplayWorkArea = {
 }
 
 export type Theme = 'light' | 'dark'
+export type LanguagePref = 'system' | 'zh' | 'en'
 
 export type AppPrefs = {
   sidebarWidth: number
@@ -27,6 +28,8 @@ export type AppPrefs = {
   typewriterMode: boolean
   /** Chromium spellcheck underline; on by default to match prior behavior. */
   spellcheck: boolean
+  /** UI language; 'system' follows the OS locale. */
+  language: LanguagePref
 }
 
 const DEFAULT_PREFS: AppPrefs = {
@@ -35,7 +38,12 @@ const DEFAULT_PREFS: AppPrefs = {
   theme: 'light',
   focusMode: false,
   typewriterMode: false,
-  spellcheck: true
+  spellcheck: true,
+  language: 'system'
+}
+
+export function clampLanguage(value: unknown): LanguagePref {
+  return value === 'zh' || value === 'en' ? value : 'system'
 }
 
 export function clampTheme(value: unknown): Theme {
@@ -115,7 +123,8 @@ export function serializePrefs(prefs: AppPrefs): string {
     theme: clampTheme(prefs.theme),
     focusMode: clampBool(prefs.focusMode, false),
     typewriterMode: clampBool(prefs.typewriterMode, false),
-    spellcheck: clampBool(prefs.spellcheck, true)
+    spellcheck: clampBool(prefs.spellcheck, true),
+    language: clampLanguage(prefs.language)
   })
 }
 
@@ -131,6 +140,7 @@ export function parsePrefsJson(raw: string | null): AppPrefs {
       focusMode?: unknown
       typewriterMode?: unknown
       spellcheck?: unknown
+      language?: unknown
     }
     return {
       sidebarWidth: clampSidebarWidth(obj.sidebarWidth),
@@ -141,7 +151,9 @@ export function parsePrefsJson(raw: string | null): AppPrefs {
       focusMode: clampBool(obj.focusMode, false),
       typewriterMode: clampBool(obj.typewriterMode, false),
       // Old prefs files lack this field — default on, so behavior is unchanged.
-      spellcheck: clampBool(obj.spellcheck, true)
+      spellcheck: clampBool(obj.spellcheck, true),
+      // Old prefs files lack this field — default to following the OS locale.
+      language: clampLanguage(obj.language)
     }
   } catch {
     return { ...DEFAULT_PREFS }

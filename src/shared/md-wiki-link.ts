@@ -47,11 +47,17 @@ function wikiLinkRule(state: InlineState, silent: boolean): boolean {
   if (/[\[\]\n]/.test(inner)) return false
   const parsed = parseWikiLink(inner)
   if (!parsed) return false
+  // markdown-it rules MUST advance state.pos even in silent/validation mode.
+  // When a parent inline rule (e.g. markdown-it-sup's `^...^`) calls
+  // skipToken while scanning its content, a silent rule that returns true
+  // without moving pos throws "inline rule didn't increment state.pos".
+  // Advancing here is harmless: silent callers only probe for a match and
+  // reset pos themselves; real tokenization continues from the new pos.
+  state.pos = close + 2
   if (silent) return true
 
   const token = state.push('wiki_link', 'span', 0)
   token.content = inner
-  state.pos = close + 2
   return true
 }
 

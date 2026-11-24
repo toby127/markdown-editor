@@ -6,6 +6,7 @@ import {
   APP_MENU_VIEW_LABEL,
   buildAppearanceMenuSubmenuItems,
   buildEditMenuSubmenuItems,
+  buildLanguageMenuSubmenuItems,
   buildViewMenuSubmenuItems,
   editRoleLabels,
   viewActionLabels
@@ -82,6 +83,34 @@ describe('app menu chrome (File/Edit Chinese labels)', () => {
       },
       { action: 'toggleTheme', label: '深色主题', prefsKey: 'theme', checkedWhen: 'dark' },
       { action: 'toggleSpellcheck', label: '拼写检查', prefsKey: 'spellcheck', checkedWhen: true }
+    ])
+  })
+
+  it('localizes the appearance toggles and view menu in English', () => {
+    expect(buildAppearanceMenuSubmenuItems('en').map((i) => i.label)).toEqual([
+      'Focus Mode',
+      'Typewriter Mode',
+      'Dark Theme',
+      'Spell Check'
+    ])
+    expect(buildViewMenuSubmenuItems('en').map((i) => i.label)).toEqual([
+      'Files',
+      'Outline',
+      'Tags',
+      'Backlinks'
+    ])
+  })
+
+  it('builds the language submenu in both languages with stable actions/values', () => {
+    expect(buildLanguageMenuSubmenuItems('zh')).toEqual([
+      { action: 'setLanguageSystem', label: '跟随系统', value: 'system' },
+      { action: 'setLanguageZh', label: '简体中文', value: 'zh' },
+      { action: 'setLanguageEn', label: 'English', value: 'en' }
+    ])
+    expect(buildLanguageMenuSubmenuItems('en')).toEqual([
+      { action: 'setLanguageSystem', label: 'Follow System', value: 'system' },
+      { action: 'setLanguageZh', label: '简体中文 (Chinese)', value: 'zh' },
+      { action: 'setLanguageEn', label: 'English', value: 'en' }
     ])
   })
 })

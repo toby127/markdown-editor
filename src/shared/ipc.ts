@@ -1,5 +1,6 @@
 import type { DirEntry } from './fs-types'
 import type { AppPrefs } from './prefs'
+import type { ResolvedLanguage } from './i18n'
 
 export const IpcChannels = {
   newFile: 'file:new',
@@ -98,6 +99,10 @@ export type MenuActionName =
   | 'toggleTypewriterMode'
   | 'toggleTheme'
   | 'toggleSpellcheck'
+  // UI language
+  | 'setLanguageSystem'
+  | 'setLanguageZh'
+  | 'setLanguageEn'
   // document find & replace
   | 'find'
   | 'findReplace'
@@ -163,6 +168,8 @@ export type MenuSyncState = {
     theme: string
     spellcheck: boolean
   }
+  /** Resolved UI language (system preference already resolved); drives menu text. */
+  language?: ResolvedLanguage
 }
 
 export type ConfirmSaveResult = 'save' | 'discard' | 'cancel'
