@@ -6,8 +6,7 @@
  * a fixture here — that is the regression net for "open, edit, save" fidelity.
  *
  * NOTE: some syntax is intentionally excluded from strict byte-for-byte
- * roundtrip and documented below, because the current serializer normalizes
- * it (see docs/01-markdown-it-功能对比与增补建议.md §4.3③):
+ * roundtrip because the current serializer normalizes it:
  *   - blockquote soft line breaks: `> a\n> b` collapses to `> a b`
  *   - link titles: `[t](url "title")` drops `"title"`
  *   - hard breaks: two trailing spaces become a backslash break
