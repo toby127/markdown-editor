@@ -32,6 +32,10 @@ A desktop Markdown editor built with Electron, React, and TipTap. It uses Typora
 
 > Math and raw HTML blocks are kept as source and shown monospaced; they are not typeset or rendered live in the editor.
 
+## Try the demo
+
+Open the [`examples/`](examples/) folder as your workspace to try a sample document with Front Matter tags, wiki links, footnotes, tables, task lists, code blocks and math. [`examples/demo.md`](examples/demo.md) links to [`examples/关联笔记.md`](examples/%E5%85%B3%E8%81%94%E7%AC%94%E8%AE%B0.md) so you can exercise backlinks and navigation.
+
 ## What's new in v0.1.2
 
 - In-document find & replace with a Ctrl+F floating bar, live highlights, case/whole-word options and replace-all
